@@ -39,7 +39,7 @@ Every combinator is a function that returns an immutable grammar node.
 
 ## The CST
 
-A parse produces a concrete syntax tree of `CSTNode`s.
+A parse produces a concrete syntax tree of `nebula!
 
 See `references/docs/` for full guides (4 total).
 

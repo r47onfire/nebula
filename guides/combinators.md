@@ -5,8 +5,7 @@ category: Guides
 
 # Combinators
 
-Every combinator is a function that returns an immutable grammar node.
-Grammars compose by nesting them.
+Every combinator is a function that returns an immutable grammar node. Grammars compose by nesting them.
 
 ## Terminals
 
@@ -49,9 +48,5 @@ Grammars can carry values alongside the parse:
 
 ## Annotation
 
-- `ignored(c)` -- mark what `c` matches as ignorable (whitespace, comments,
-  punctuation). Ignored children stay in the CST so the source can be
-  reproduced exactly, and are removed by `condenseCST`.
-- `tag(c, name)` -- attach a semantic tag to the node `c` produces, for
-  syntax highlighters and other tree consumers that read the uncondensed
-  tree.
+- `ignored(c)` -- mark what `c` matches as ignorable (whitespace, comments, punctuation). Ignored children stay in the CST so the source can be reproduced exactly, and are removed by `condenseCST`.
+- `tag(c, name)` -- attach a semantic tag to the node `c` produces, for syntax highlighters and other tree consumers that read the uncondensed tree.

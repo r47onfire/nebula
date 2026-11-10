@@ -7,30 +7,22 @@ category: Guides
 
 ## The CST
 
-A parse produces a concrete syntax tree of `CSTNode`s. The defining
-invariant: concatenating the `text` of all leaves -- _including_ ignored
-nodes -- reproduces the original source exactly. Nothing is thrown away at
-parse time; deciding what is junk is a separate, later step.
+A parse produces a concrete syntax tree of {@link nebula!CSTNode | `CSTNode`}s. The defining invariant: concatenating the {@link nebula!CSTNode.text | text} of all leaves -- _including_ {@link nebula!CSTNode.ignored | `ignored`} nodes -- reproduces the original source exactly. Nothing is thrown away at parse time; deciding what is junk is a separate, later step.
 
 A node may carry:
 
-- `type` -- the rule name, for named nodes. Unnamed container nodes and
+- {@link nebula!CSTNode.type | `type`} -- the rule name, for named nodes. Unnamed container nodes and
   text leaves have no `type`.
-- `start` / `end` -- source offsets (indices, not line/column).
-- `text` -- the matched text, on leaves.
-- `children` -- child nodes.
-- `ignored` -- set on nodes matched under `ignored(...)`.
-- `errorExpected` -- set on error nodes: the combinator that would have
+- {@link nebula!CSTNode.span | `span`} -- source offsets (indices and line/column).
+- {@link nebula!CSTNode.text | `text`} -- the matched text, on leaves.
+- {@link nebula!CSTNode.children | `children`} -- child nodes.
+- {@link nebula!CSTNode.ignored | `ignored`} -- set on nodes matched under `ignored(...)`.
+- {@link nebula!CSTNode.errorExpected | `errorExpected`} -- set on error nodes: the combinator that would have
   matched at that position.
 
 ## Condensing
 
-```ts
-// All imports in this page come from here (not the root entrypoint)
-import { condenseCST, walkCombinator } from "@r47onfire/nebula/compile";
-```
-
-`condenseCST(cst)` lowers a CST towards an AST while preserving spans:
+{@link compile!condenseCST | `condenseCST(cst)`} lowers a CST towards an AST while preserving spans:
 
 - ignored children are removed;
 - unnamed container nodes are merged into their parent;
@@ -38,10 +30,10 @@ import { condenseCST, walkCombinator } from "@r47onfire/nebula/compile";
 
 ## Compiling a condensed tree
 
-Nebula does not prescribe a target language. It provides one generic walk for turning a condensed tree into output values: `syncCompile(node, table, wrap, handleError)`, driven by a `CompilerTable` that maps each node `type` to a handler.
+Nebula does not prescribe a target language. It provides one generic walk for turning a condensed tree into output values: {@link compile!syncCompile | `syncCompile(node, table, wrap, handleError)`}, driven by a {@link compile!CompilerTable | `CompilerTable`} that maps each node {@link nebula!CSTNode.type | `type`} to a handler.
 
-A handler receives the node's children, an optional per-variant mapping record, and the node itself, and returns a `CompileBuilder`: a template value `val`, a list `tbc` of (child node, path) pairs naming which children still need compiling and where their results belong in the template, and an optional `post` naming another table entry to re-dispatch the assembled value through. Compile errors do not throw out of the walk: they are routed to `handleError`, which typically swallows the error and produces an error value in the output -- so an error in unreachable output stays inert unless evaluation reaches it.
+A handler receives the node's children, an optional per-variant mapping record, and the node itself, and returns a {@link compile!CompileBuilder | `CompileBuilder`}: a template value {@link compile!CompileBuilder.val | `val`}, a list {@link compile!CompileBuilder.tbc | `tbc`} of (child node, path) pairs naming which children still need compiling and where their results belong in the template, and an optional {@link compile!CompileBuilder.post | `post`} naming another table entry to re-dispatch the assembled value through. Compile errors do not throw out of the walk: they are routed to {@link compile!syncCompile | `handleError`}, which typically swallows the error and produces an error value in the output -- so an error in unreachable output stays inert unless evaluation reaches it.
 
 ## Walking grammars themselves
 
-`walkCombinator` folds over a grammar combinator with a `CombinatorWalker` (a leaf hook for scalar fields and a fold hook per node), and resolves rule references and parameters against an environment. `hashCombinator` and `hashResolved` are that same walk specialized to hashing: hashing a grammar (or a rule with its parameters resolved) gives memoization and change detection a stable key to work with.
+{@link nebula!walkCombinator | `walkCombinator`} folds over a grammar combinator with a {@link nebula!CombinatorWalker | `CombinatorWalker`} (a leaf hook for scalar fields and a fold hook per node), and resolves rule references and parameters against an environment. {@link nebula!hashCombinator | `hashCombinator`} and {@link nebula!hashResolved | `hashResolved`} are that same walk specialized to hashing: hashing a grammar (or a rule with its parameters resolved) gives memoization and change detection a stable key to work with.
