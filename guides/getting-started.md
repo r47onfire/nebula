@@ -52,7 +52,7 @@ Two things to notice:
 const cst = parseToCST("(abc)", new URL("test"), 0, "main", grammar, "exprs");
 ```
 
-The arguments are the text, the filename (as a `URL`), the index to start at, the start rule, the grammar, and the node type to wrap recovered text in when the parse has to skip over input it cannot match. An optional sixth argument names the error node type (default `"BAD"`), and an optional seventh passes in a memo table to reuse across parses of an unchanged grammar.
+The arguments are the text, the filename (as a `URL`), the index to start at, the start rule, the grammar, and the node type to wrap recovered text in when the parse has to skip over input it cannot match. An optional seventh argument names the error node type (default `"BAD"`), and an optional eighth passes in a memo table to reuse across parses of an unchanged grammar.
 
 ## Reading the result
 
