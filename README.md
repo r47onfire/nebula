@@ -2,7 +2,7 @@
 
 A grammar-driven packrat parser engine with left-recursion support. Grammars are plain JSON -- no code generation, no separate grammar file format -- and parsing produces a concrete syntax tree (CST) whose leaves, concatenated, reproduce the input exactly.
 
-The parsing algorithm is a modified PEG packrat parser that supports left recursion, based on "Packrat Parsers Can Support Left Recursion" by Warth, Douglass, and Millstein (PEPM '08). A copy of the paper is bundled at `src/parser/packrat_lr.pdf`.
+The parsing algorithm is a modified PEG packrat parser that supports left recursion, based on ["Packrat Parsers Can Support Left Recursion" by Warth, Douglass, and Millstein (PEPM '08)](./packrat_lr.pdf).
 
 Nebula is primarily designed to be used in [Backolon](https://backolon.js.org), but it is a general-purpose parsing library and knows nothing about any particular language.
 
