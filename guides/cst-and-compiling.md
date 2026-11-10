@@ -16,7 +16,7 @@ A node may carry:
 - {@link nebula!CSTNode.span | `span`} -- source offsets (indices and line/column).
 - {@link nebula!CSTNode.text | `text`} -- the matched text, on leaves.
 - {@link nebula!CSTNode.children | `children`} -- child nodes.
-- {@link nebula!CSTNode.ignored | `ignored`} -- set on nodes matched under `ignored(...)`.
+- {@link nebula!CSTNode.ignored | `ignored`} -- set on nodes matched under {@link nebula!ignored | `ignored(...)`}.
 - {@link nebula!CSTNode.errorExpected | `errorExpected`} -- set on error nodes: the combinator that would have
   matched at that position.
 

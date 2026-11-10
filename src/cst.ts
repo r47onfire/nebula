@@ -16,7 +16,8 @@ export type CSTNode = {
     readonly type?: string | undefined;
     /**
      * True if this node is meaningless junk that does not change the AST
-     * (commas, parens, whitespace/comments).
+     * (commas, parens, whitespace/comments) and can be dropped in a
+     * pre-processing step.
      */
     readonly ignored?: boolean;
     /** Visual kind for syntax highlighting. */

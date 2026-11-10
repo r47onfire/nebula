@@ -15,7 +15,7 @@ describeCombinator(node: GrammarCombinator): string
 ## combinatorFactory
 
 ### `lit`
-Matches the literal string `p` exactly; produces a leaf holding that text.
+Matches the literal string `str` exactly; produces a leaf holding that text.
 ```ts
 lit(str: string): GrammarCombinator
 ```
@@ -24,9 +24,8 @@ lit(str: string): GrammarCombinator
 **Returns:** `GrammarCombinator`
 
 ### `regex`
-Matches the regex `p` anchored at the current position (the engine adds the
-sticky flag); produces a leaf holding the matched text. The pattern is stored
-as `[source, flags]` to keep combinators plain data.
+Matches the regex `pattern` anchored at the current position (the engine adds
+the sticky `y` flag); produces a leaf holding the matched text.
 ```ts
 regex(pattern: RegExp): GrammarCombinator
 ```
@@ -35,8 +34,8 @@ regex(pattern: RegExp): GrammarCombinator
 **Returns:** `GrammarCombinator`
 
 ### `seq`
-Matches all of `n` in order; the result is a flat node holding every child's
-result.
+Matches all of `nodes` in order; the result is a flat node holding every
+child's result.
 ```ts
 seq(nodes: GrammarCombinator[]): GrammarCombinator
 ```
@@ -45,8 +44,8 @@ seq(nodes: GrammarCombinator[]): GrammarCombinator
 **Returns:** `GrammarCombinator`
 
 ### `ssep`
-Like `seq`, but the separator `s` is attempted between the items; separator
-results are marked ignored.
+Like seq, but the separator is attempted between the items; separator
+results are marked CSTNode.ignored | ignored.
 ```ts
 ssep(separator: GrammarCombinator, nodes: GrammarCombinator[]): GrammarCombinator
 ```
@@ -56,9 +55,9 @@ ssep(separator: GrammarCombinator, nodes: GrammarCombinator[]): GrammarCombinato
 **Returns:** `GrammarCombinator`
 
 ### `alt`
-Tries every alternative and returns the first alternative that cut (whether
-or not it succeeded) or if none cut, the longest succeeding match (the first,
-on ties).
+Tries every alternative and returns the first alternative that cut
+(whether or not it succeeded) or if none cut, the longest succeeding match
+(the first, on ties).
 ```ts
 alt(options: GrammarCombinator[]): GrammarCombinator
 ```

@@ -37,8 +37,8 @@ const grammar: Grammar = {
 
 Two things to notice:
 
-- `rule("word")` refers to another rule by name. A rule that succeeds produces a CST node whose `type` is the rule name.
-- `wrap` is a _parameterized rule_: its definition is a pair of a parameter list and a body. `rule("wrap", lit("("), lit(")"))` calls it with two combinator arguments, and inside the body `param("open")` and `param("close")` stand for them. Different call sites can pass different arguments and get different parses from the same rule body.
+- {@link nebula!rule | `rule("word")`} refers to another rule by name. A rule that succeeds produces a CST node whose {@link nebula!CSTNode.type | `type`} is the rule name.
+- `wrap` is a _parameterized rule_: its definition is a pair of a parameter list and a body. {@link nebula!rule | `rule("wrap", lit("("), lit(")"))`} calls it with two combinator arguments, and inside the body {@link nebula!param | `param("open")`} and {@link nebula!param | `param("close")`} stand for them. Different call sites can pass different arguments and get different parses from the same rule body.
 
 ## Parsing
 
@@ -50,6 +50,6 @@ The arguments are the text, the filename (as a `URL`), the index to start at, th
 
 ## Reading the result
 
-The result is a `CSTNode`. Named nodes have a `type`, every node knows its `start`/`end` offsets and the `text` it matched, and concatenating the `text` of all the leaves -- including ignored ones -- reproduces the input exactly.
+The result is a {@link nebula!CSTNode | `CSTNode`}. Named nodes have a {@link nebula!CSTNode.type | `type`}, every node knows its `start`/`end` offsets and the {@link nebula!CSTNode.text | `text`} it matched, and concatenating the {@link nebula!CSTNode.text | `text`} of all the leaves -- including ignored ones -- reproduces the input exactly.
 
-Parsing does not throw on bad input. A position where nothing matched becomes an error node whose `errorExpected` field holds the combinator that should have matched there, which is also how a caller can render "expected X" messages. See [The CST and compiling it](./cst-and-compiling.md) for condensing a CST and formatting errors.
+Parsing does not throw on bad input. A position where nothing matched becomes an error node whose {@link nebula!CSTNode.errorExpected | `errorExpected`} field holds the combinator that should have matched there, which is also how a caller can render "expected X" messages. See [The CST and compiling it](./cst-and-compiling.md) for condensing a CST and formatting errors.

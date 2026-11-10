@@ -11,8 +11,8 @@ const opDefs: { literal: { create: (pattern: string | [string, string]) => { pat
 ## combinatorFactory
 
 ### `kw`
-Matches any one of the given options between regex \b separators; the result
-is tagged `t` and ignored.
+Matches any one of the given options between regex `\b` separators; the
+result is tagged with tag and CSTNode.ignored | ignored.
 ```ts
 const kw: (tag: string, options: string[]) => GrammarCombinator
 ```
@@ -25,36 +25,37 @@ const op: (tag: string, op: string) => GrammarCombinator
 ```
 
 ### `ignored`
-Parses `n` but flags the result `ignored`: its text stays in the CST (so
-concatenating all leaves still reproduces the source) and it is dropped
-later, when the CST is lowered to an AST.
+Parses `node` but flags the result CSTNode.ignored | ignored: its text
+stays in the CST (so concatenating all leaves still reproduces the source)
+but marks it as ok to be dropped later, when you lower the CST to an AST.
 ```ts
 const ignored: (node: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `rule`
-Invokes the named rule `r` from the grammar; the result is wrapped in a node
-typed `r`, unless the rule only delegated to another named rule. Extra
-combinators are arguments, for calling a parameterized rule.
+Invokes the named rule from the grammar; the result is wrapped in a node
+CSTNode.type | typed `ruleName`, unless the rule only delegated to
+another named rule. Extra combinators are arguments, for calling a
+ParameterizedRule | parameterized rule.
 ```ts
 const rule: (ruleName: string, args: GrammarCombinator[]) => GrammarCombinator
 ```
 
 ### `param`
-Evaluates the argument combinator bound to the parameter `p` of the enclosing
-parameterized rule, in the scope where that argument was written. If `p` is
-unbound and a `defaultValue` is given, the default is evaluated instead, in
-the scope in effect at this reference; with no default, an unbound parameter
-is an error.
+Evaluates the argument combinator bound to the parameter of the enclosing
+parameterized rule, in the scope where that argument was written. If the
+parameter is unbound and a `defaultValue` is given, the default is evaluated
+instead, in the scope in effect at this reference; with no default, an
+unbound parameter is an error.
 ```ts
 const param: (parameterName: string, defaultValue?: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `ambient`
-Evaluates the combinator bound to the dynamic parameter `p` by the nearest
+Evaluates the combinator bound to the dynamic parameter by the nearest
 enclosing bind. Dynamic parameters are ambient context: any rule
 parsed within the bind's extent can read them without receiving them as
-arguments. If `p` is unbound and a `defaultValue` is given, the default is
+arguments. If it is unbound and a `defaultValue` is given, the default is
 evaluated instead, in the scope in effect at this reference; with no default,
 an unbound dynamic parameter is an error.
 ```ts
@@ -62,74 +63,72 @@ const ambient: (varName: string, defaultValue?: GrammarCombinator) => GrammarCom
 ```
 
 ### `bind`
-Parses `body` with the dynamic parameter `p` bound to `value` for the body's
+Parses `body` with the dynamic parameter bound to `value` for the body's
 dynamic extent (including any rules it calls, however deep). Inside `value`,
-`ambient(p)` still refers to the binding this one shadows, so a new value can
-extend the old one.
+ambient | `ambient(p)` still refers to the binding this one shadows,
+so a new value can extend the old one.
 ```ts
 const bind: (varName: string, extend: boolean, value: GrammarCombinator, body: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `opt`
-Matches `n` if it succeeds, otherwise succeeds empty -- unless `n` failed
-after a cut, in which case the failure propagates.
+Matches `node` if it succeeds, otherwise succeeds empty -- unless `node`
+failed after a cut, in which case the failure propagates.
 ```ts
 const opt: (node: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `rep`
-Repeats `n` greedily until it fails ordinarily; `r` = true requires at least
-one match, false allows zero. With several nodes the repetition cycles
-through them.
+Repeats `node` greedily until it fails ordinarily; `required` = true requires
+at least one match, false allows zero.
 ```ts
 const rep: (required: boolean, node: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `joined`
-Matches `n` separated by `j` (`n`, `n` `j` `n`, ...), keeping elements and
-separators in one flat result. `r2` requires at least two elements; `t`
-permits a trailing separator.
+Matches `node` separated by `joiner` (`node`, `node` `joiner` `node`, ...),
+keeping elements and separators in one flat result.
 ```ts
 const joined: (joiner: GrammarCombinator, bodyNode: GrammarCombinator, requireTwo: boolean, allowTrailingJoiner: boolean) => GrammarCombinator
 ```
 
 ### `if_`
-Conditional: evaluates `c` as a lookahead (consuming no input); matches `t`
-if it succeeds, `f` otherwise.
+Evaluates `condition` as a positive lookahead (consuming no input);
+matches `ifTrue` if it succeeds, `ifFalse` otherwise.
 ```ts
 const if_: (condition: GrammarCombinator, ifTrue: GrammarCombinator, ifFalse: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `tag`
-Parses `n` and tags the result with `t` (the visual kind used for syntax
+Parses `node` and tags the result with `tag` (the visual kind used for syntax
 highlighting).
 ```ts
 const tag: (tag: string, node: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `cut`
-Cut: once matched, a later failure no longer falls back to sibling
-alternatives; `d` is how many enclosing choice levels the commitment spans.
-Produces an empty ignored node.
+Once matched, a later failure no longer falls back to sibling alternatives;
+`depth` is how many enclosing choice levels the commitment spans. Produces an
+empty CSTNode.ignored | ignored node.
 ```ts
 const cut: (depth?: any) => GrammarCombinator
 ```
 
 ### `lookahead`
-Asserts that `n` matches (`p` = true) or does not match (`p` = false) at the
-current position, consuming no input.
+Asserts that `node` matches (`positive` = true) or does not match (`positive`
+= false) at the current position, consuming no input.
 ```ts
 const lookahead: (positive: boolean, node: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `nonempty`
-Parses `n` and fails if it matched without consuming any input.
+Parses `node` and fails if it matched the empty string.
 ```ts
 const nonempty: (node: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `sameline`
-Parses `n` and fails if the matched span contains a newline.
+Parses `node` and fails if the matched span contains a newline.
 ```ts
 const sameline: (node: GrammarCombinator) => GrammarCombinator
 ```
@@ -147,14 +146,15 @@ const yes: () => GrammarCombinator
 ```
 
 ### `try_`
-Parses `n` speculatively: if `n` fails, any cut inside it is hidden, so the
-failure looks ordinary and enclosing alternatives can still fall back.
+Parses `node` speculatively: if it fails, any cut inside it is hidden,
+so the failure looks ordinary and enclosing alternatives can still fall
+back.
 ```ts
 const try_: (node: GrammarCombinator) => GrammarCombinator
 ```
 
 ### `die`
-Always fails, with `m` naming what was expected. The failure carries an
+Always fails, with `message` naming what was expected. The failure carries an
 infinite cut, so no alternative or recovery is attempted past it.
 ```ts
 const die: (message: string) => GrammarCombinator

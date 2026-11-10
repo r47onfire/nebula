@@ -729,6 +729,7 @@ export const opDefs = {
     // rep
 
     repeat: {
+        // TODO: expose repeat_seq, it's implemented but not exposed by create + factories
         create: (r: boolean, n: GrammarCombinator) => ({
             items: [n],
             required: r,
