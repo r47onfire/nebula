@@ -1,0 +1,37 @@
+{
+    "entryPointStrategy": "expand",
+    "tsconfig": "./tsconfig.json",
+    "excludeExternals": true,
+    "hideGenerator": true,
+    "includeVersion": true,
+    "disableSources": false,
+    "skipErrorChecking": true,
+    "disableGit": true,
+    // update this with your username and repository
+    "sourceLinkTemplate": "https://github.com/r47onfire/bun-typescript-template/blob/{gitRevision}/src/{path}#L{line}",
+    // "favicon": "", // Add icon
+    "useTsLinkResolution": true,
+    "ignoredHighlightLanguages": [
+        // if you're making a custom PL, put its name in here
+    ],
+    "intentionallyNotExported": [],
+    "externalSymbolLinkMappings": {
+        // mapping from package -> exported symbol -> documentation link
+    },
+    "sort": [
+        "documents-first",
+        "alphabetical",
+        "kind",
+        "enum-member-source-order"
+    ],
+    "plugin": ["@skillit/typedoc"],
+    "llmsTxt": true,
+    "llmsTxtOutDir": "docs", // Must be root of the place it's being served from
+    "out": "./docs/api",
+    "projectDocuments": ["guides/**/*.md"],
+    "readme": "website_landing.md", // delete this to use the README
+    "searchInDocuments": true,
+    "navigationLinks": {
+        // add topbar links for quick navigation
+    }
+}
