@@ -197,7 +197,7 @@ export const hashResolved = (
                     if (dyn.name === node.name)
                         return {
                             node: dyn.node,
-                            env: [dyn.locals, dyn.dynamics] as const,
+                            env: [dyn.locals, dyn.next] as const,
                         };
                 }
                 if (node.default) return { node: node.default, env };

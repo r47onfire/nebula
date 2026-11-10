@@ -1,7 +1,7 @@
 import { isArray } from "lib0/array";
 import { stringify } from "lib0/json";
 import { max } from "lib0/math";
-import { ambient, nothing, seq } from "./combinatorFactory";
+import { ambient, bind, nothing, param, rule, seq } from "./combinatorFactory";
 import { OpContext } from "./context";
 import { CSTNode } from "./cst";
 import { MatchFail } from "./parseToCST";
@@ -117,10 +117,11 @@ export interface ParamBinding {
 }
 
 /**
+ * Internal implementation detail of the parser (used by parameterized
+ * {@link rule} and {@link param}).
+ *
  * A parameter scope: the bindings of one parameterized rule invocation, chained
- * to the enclosing scope. Scopes are threaded through the parse as immutable
- * values, so speculative branches (alternatives, lookaheads, recovery probes)
- * can never disturb each other's bindings.
+ * to the enclosing scope. Scopes are immutable.
  */
 export interface ParamFrame {
     readonly bindings: Readonly<Record<string, ParamBinding>>;
@@ -129,19 +130,21 @@ export interface ParamFrame {
 export type Locals = ParamFrame | undefined;
 
 /**
+ * Internal implementation detail of the parser (used by dynamic {@link bind} and
+ * {@link ambient}).
+ *
  * The dynamic scope: a chain of dynamic bindings (bound value, scopes in which
- * it was created), innermost first. Like the lexical scope it is threaded
- * through the parse as an immutable value, so speculative branches cannot
- * disturb each other's bindings. `key` identifies this exact chain; while a
- * chain is in effect its key is part of every memo identity, so a result that
- * depends on ambient context is never reused under a different context.
+ * it was created), innermost first. Like the {@link ParamFrame} it immutable.
  */
 export interface DynBindingFrame {
     readonly name: string;
     readonly node: GrammarCombinator;
     readonly locals: Locals;
-    readonly dynamics: Dynamics;
     readonly next: Dynamics;
+    /**
+     * Unique string hash of this chain, mixed into memo keys to keep cache
+     * entries specific to this exact scope's bindings.
+     */
     readonly key: string;
 }
 export type Dynamics = DynBindingFrame | undefined;
@@ -489,7 +492,7 @@ export const opDefs = {
                         dyn.node,
                         i,
                         dyn.locals,
-                        dyn.dynamics,
+                        dyn.next,
                     );
             }
             if (defaultValue)
@@ -529,7 +532,6 @@ export const opDefs = {
                 name,
                 node: extend ? seq(ambient(name, nothing()), value) : value,
                 locals,
-                dynamics,
                 next: dynamics,
                 key:
                     (dynamics ? dynamics.key + "/" : "") +
