@@ -1,50 +1,70 @@
-# bun-typescript-template
+# Nebula
 
-Quick template to get started with a TypeScript project using [Bun](https://bun.com) with Jest-style unit tests, possibly an NPM package, and/or a Github Pages site, optionally with TypeDoc documentation.
+A grammar-driven packrat parser engine with left-recursion support. Grammars are plain JSON -- no code generation, no separate grammar file format -- and parsing produces a concrete syntax tree (CST) whose leaves, concatenated, reproduce the input exactly.
+
+The parsing algorithm is a modified PEG packrat parser that supports left recursion, based on "Packrat Parsers Can Support Left Recursion" by Warth, Douglass, and Millstein (PEPM '08). A copy of the paper is bundled at `src/parser/packrat_lr.pdf`.
+
+Nebula is primarily designed to be used in [Backolon](https://backolon.js.org), but it is a general-purpose parsing library and knows nothing about any particular language.
+
+- API documentation and guides: <https://r47onfire.github.io/nebula>
+
+## Install
+
+```sh
+bun add github:@r47onfire/nebula
+# or
+npm install github:@r47onfire/nebula
+```
+
+## Example
+
+```ts
+import {
+    Grammar,
+    lit,
+    param,
+    parseToCST,
+    regex,
+    rule,
+    seq,
+} from "@r47onfire/nebula";
+
+const grammar: Grammar = {
+    main: rule("wrap", lit("("), lit(")")),
+    // a parameterized rule: `wrap` is called with two combinator arguments
+    wrap: [["open", "close"], seq(param("open"), rule("word"), param("close"))],
+    word: regex(/[a-z]+/),
+};
+
+const cst = parseToCST(
+    "(abc)",
+    new URL("filename"),
+    0,
+    "main",
+    grammar,
+    "exprs",
+);
+```
+
+`parseToCST` never throws for bad input: syntax errors come back as error nodes in the CST (with an `errorExpected` field pointing to the grammar rule or combinator that should have matched), so a caller can report every error it can recover from, not just the first.
+
+## Repository layout
 
 - Source files go in `src/`
 - Test files go in `test/`
 - Build scripts and helpers go in `scripts/`
-- Website sources (raw HTML + website-only glue code) go in `website/`
 - Prose documentation guides go in `guides/`
 - Build artifacts go in `dist/` - gitignore'd
 - Website build files go in `docs/` - gitignore'd
 
-Getting started:
+## Development
 
-1. update the `package.json` fields: name, version, description, repository, keywords, author, license (and update the LICENSE file if license is different)
-1. to build: `bun run build`
-1. to test website: `bun run dev` and open <http://localhost:8000/>
+```sh
+bun run build   # bundle src/index.ts into dist/
+bun test        # run the test suite
+bun run dev     # serve docs/ on http://localhost:8000 and rebuild on change
+```
 
-## NPM package
+## License
 
-If you want to publish as an NPM package:
-
-1. make sure to remove `"private": true` from `package.json`
-1. make the first release manually as normal `npm publish`
-1. once it is on NPM, when you make a new version, bump the version in `package.json` and then manually trigger `.github/workflows/publish-package.yaml`
-1. if tests fail, it will not publish
-
-If you don't want to publish as an NPM package:
-
-1. delete `.github/workflows/publish-package.yaml`
-
-## website
-
-If you have a website (docs, demo, etc):
-
-1. put your html files in `website/`
-1. put your markdown guides in `guides/`
-1. if there is more than just `index.html`, make sure to list them as entrypoints in `scripts/build-website.ts`
-1. there is a custom plugin that allows Markdown in elements that look like `<div markdown="block">markdown here</div>`
-1. uncomment the "push" event in `.github/workflows/website.yaml` if you want to automatically rebuild on every push (it is commented to prevent the workflow from instantly failing when you create the new repo from this template)
-
-If you don't have a website or documentation:
-
-1. delete the entire `website/` directory
-1. delete `.github/workflows/website.yaml`
-1. delete `typedoc.json`
-1. delete `scripts/build-website.ts`
-1. possibly merge the two build scripts
-1. delete the `build:website`, `clean-docs`, `dev`, `dev:watch`, and `dev:serve` scripts from `package.json`
-1. remove the website-only dependencies (markdown-it, typedoc, node-html-parser, etc)
+AGPL-3.0-only

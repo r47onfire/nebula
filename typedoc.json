@@ -6,18 +6,13 @@
     "includeVersion": true,
     "disableSources": false,
     "skipErrorChecking": true,
-    "disableGit": true,
-    // update this with your username and repository
-    "sourceLinkTemplate": "https://github.com/r47onfire/bun-typescript-template/blob/{gitRevision}/src/{path}#L{line}",
+    "disableGit": false,
+    "sourceLinkTemplate": "https://github.com/r47onfire/nebula/blob/{gitRevision}/src/{path}#L{line}",
     // "favicon": "", // Add icon
     "useTsLinkResolution": true,
-    "ignoredHighlightLanguages": [
-        // if you're making a custom PL, put its name in here
-    ],
+    "ignoredHighlightLanguages": [],
     "intentionallyNotExported": [],
-    "externalSymbolLinkMappings": {
-        // mapping from package -> exported symbol -> documentation link
-    },
+    "externalSymbolLinkMappings": {},
     "sort": [
         "documents-first",
         "alphabetical",
@@ -26,12 +21,13 @@
     ],
     "plugin": ["@skillit/typedoc"],
     "llmsTxt": true,
-    "llmsTxtOutDir": "docs", // Must be root of the place it's being served from
-    "out": "./docs/api",
-    "projectDocuments": ["guides/**/*.md"],
-    "readme": "website_landing.md", // delete this to use the README
+    "llmsTxtOutDir": "docs",
+    "out": "./docs",
+    "projectDocuments": ["guides/index.md"],
+    "readme": "website_landing.md",
     "searchInDocuments": true,
     "navigationLinks": {
-        // add topbar links for quick navigation
+        "GitHub": "https://github.com/r47onfire/nebula",
+        "Backolon": "https://backolon.js.org"
     }
 }
