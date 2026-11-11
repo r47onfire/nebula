@@ -43,10 +43,10 @@ const rule: (ruleName: string, args: GrammarCombinator[]) => GrammarCombinator
 
 ### `param`
 Evaluates the argument combinator bound to the parameter of the enclosing
-parameterized rule, in the scope where that argument was written. If the
-parameter is unbound and a `defaultValue` is given, the default is evaluated
-instead, in the scope in effect at this reference; with no default, an
-unbound parameter is an error.
+ParameterizedRule | parameterized rule, in the scope where that
+argument was written. If the parameter is unbound and a `defaultValue` is
+given, the default is evaluated instead, in the scope in effect at this
+reference; with no default, an unbound parameter is an error.
 ```ts
 const param: (parameterName: string, defaultValue?: GrammarCombinator) => GrammarCombinator
 ```
