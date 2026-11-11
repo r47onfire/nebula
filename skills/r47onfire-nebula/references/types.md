@@ -65,10 +65,11 @@ parameters it mentions in the call site's scope, not the callee's.
 - `locals: Locals`
 
 ### `ParamFrame`
+Internal implementation detail of the parser (used by parameterized
+rule and param).
+
 A parameter scope: the bindings of one parameterized rule invocation, chained
-to the enclosing scope. Scopes are threaded through the parse as immutable
-values, so speculative branches (alternatives, lookaheads, recovery probes)
-can never disturb each other's bindings.
+to the enclosing scope. Scopes are immutable.
 **Properties:**
 - `bindings: Readonly<Record<string, ParamBinding>>`
 - `next: Locals`
@@ -79,19 +80,18 @@ ParamFrame | undefined
 ```
 
 ### `DynBindingFrame`
+Internal implementation detail of the parser (used by dynamic bind and
+ambient).
+
 The dynamic scope: a chain of dynamic bindings (bound value, scopes in which
-it was created), innermost first. Like the lexical scope it is threaded
-through the parse as an immutable value, so speculative branches cannot
-disturb each other's bindings. `key` identifies this exact chain; while a
-chain is in effect its key is part of every memo identity, so a result that
-depends on ambient context is never reused under a different context.
+it was created), innermost first. Like the ParamFrame it immutable.
 **Properties:**
 - `name: string`
 - `node: GrammarCombinator`
 - `locals: Locals`
-- `dynamics: Dynamics`
 - `next: Dynamics`
-- `key: string`
+- `key: string` — Unique string hash of this chain, mixed into memo keys to keep cache
+entries specific to this exact scope's bindings.
 
 ### `Dynamics`
 ```ts
@@ -169,7 +169,7 @@ Readonly<Record<string, GrammarCombinator | ParameterizedRule>>
 
 ### `ParameterizedRule`
 A parameterized rule definition: the parameter names, and the rule body.
-Inside the body, `param(name)` evaluates the combinator that was passed for
+Inside the body, param evaluates the combinator that was passed for
 that parameter at the call site (in the call site's scope).
 ```ts
 readonly [params: readonly string[], body: GrammarCombinator]
