@@ -83,7 +83,17 @@ export type GrammarCombinator<R extends string, P extends string> = {
             R,
             P
         >[O];
-}[GrammarOp];
+}[GrammarOp] & {
+    /**
+     * Phantom brands (never set at runtime): the rule names this combinator
+     * tree can invoke, and the parameter names it can reference. They live at
+     * the top level, outside the per-operation union, because TypeScript gets
+     * very confused when you try to have it infer recursively into union
+     * members.
+     */
+    readonly ___rules_nonexistent_at_runtime?: R;
+    readonly ___params_nonexistent_at_runtime?: P;
+};
 
 /**
  * The memo path of a parameterized rule invocation names the instance by the

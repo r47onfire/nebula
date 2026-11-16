@@ -30,7 +30,7 @@ const parsesFully = <T extends string>(
 
 describe("parameterized rules", () => {
     test("param matches the given argument", () => {
-        const grammar = {
+        const grammar: Grammar = {
             main: rule("wrap", lit("("), lit(")")),
             wrap: [
                 ["open", "close"],
