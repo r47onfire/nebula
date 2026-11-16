@@ -102,12 +102,13 @@ export const param: {
  * evaluated instead, in the scope in effect at this reference; with no default,
  * an unbound dynamic parameter is an error.
  */
-export const ambient: <R extends string = never, P extends string = never>(
-    varName: string,
-    defaultValue?: GrammarCombinator<R, P> | undefined,
-) => GrammarCombinator<NoInfer<R>, NoInfer<P>> = factoryFactory(
-    "ambient",
-) as any;
+export const ambient: {
+    (varName: string): GrammarCombinator<never, never>;
+    <R extends string = never, P extends string = never>(
+        varName: string,
+        defaultValue: GrammarCombinator<R, P>,
+    ): GrammarCombinator<NoInfer<R>, NoInfer<P>>;
+} = factoryFactory("ambient") as any;
 /**
  * Parses `body` with the dynamic parameter bound to `value` for the body's
  * dynamic extent (including any rules it calls, however deep). Inside `value`,
