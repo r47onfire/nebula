@@ -421,8 +421,7 @@ export const opDefs = {
                     : new MatchFail(cst.i, d, cst.expected);
             }
             // Don't nest when the rule only delegated to another named rule
-            if (cst.text === undefined && typeof cst.type === "string")
-                return cst;
+            if (cst.text === null && cst.type !== null) return cst;
             return new CSTNode(cst.span, name, [cst], false);
         },
         hashFields: [

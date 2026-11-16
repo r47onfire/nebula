@@ -11,9 +11,7 @@ import { CSTNode } from "./cst";
  */
 export const condenseCST = <R>(cst: CSTNode<R>): CSTNode<R> => {
     const condensedChildren = (node: CSTNode<R>): CSTNode<R>[] =>
-        (node.children ?? [])
-            .filter((child) => !child.ignored)
-            .flatMap(condense);
+        node.children.filter((child) => !child.ignored).flatMap(condense);
     const condense = (node: CSTNode<R>): CSTNode<R>[] => {
         // error nodes stay whole, their children unexamined, as in toAST
         if (node.errorExpected !== undefined) return [node];
@@ -32,10 +30,10 @@ export const condenseCST = <R>(cst: CSTNode<R>): CSTNode<R> => {
                       )
                     : node,
             ];
-        // unnamed containers dissolve into their parent
-        if (node.children !== null) return condensedChildren(node);
         // text leaves survive as they are
-        return [node];
+        if (node.text !== null) return [node];
+        // unnamed containers dissolve into their parent
+        return condensedChildren(node);
     };
     return condense(cst)[0]!;
 };
