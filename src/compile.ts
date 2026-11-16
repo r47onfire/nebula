@@ -18,14 +18,22 @@ export const condenseCST = <R>(cst: CSTNode<R>): CSTNode<R> => {
         // error nodes stay whole, their children unexamined, as in toAST
         if (node.errorExpected !== undefined) return [node];
         // named nodes survive, with their children condensed
-        if (node.type !== undefined)
+        if (node.type !== null)
             return [
-                node.children === undefined
-                    ? node
-                    : { ...node, children: condensedChildren(node) },
+                node.children.length > 0
+                    ? new CSTNode(
+                          node.span,
+                          node.type,
+                          condensedChildren(node),
+                          node.ignored,
+                          node.tag,
+                          node.text,
+                          node.errorExpected,
+                      )
+                    : node,
             ];
         // unnamed containers dissolve into their parent
-        if (node.children !== undefined) return condensedChildren(node);
+        if (node.children !== null) return condensedChildren(node);
         // text leaves survive as they are
         return [node];
     };
