@@ -848,7 +848,12 @@ export const opDefs = {
             const len = nodes.length;
             if (len > 0) {
                 for (var count = 0; ; count++) {
-                    if (i >= ctx.text.length) break;
+                    if (i >= ctx.text.length) {
+                        // oh no
+                        if (required && count < 1)
+                            return new MatchFail(i, 0, nodes[0]!);
+                        break;
+                    }
                     const item = nodes[count % len]!;
                     const thisMatch = ctx.applyRule(
                         path + "/*",

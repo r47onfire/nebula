@@ -15,6 +15,7 @@ import {
     param,
     parseToCST,
     regex,
+    rep,
     rule,
     seq,
 } from "../src";
@@ -447,5 +448,31 @@ describe("name adoption", () => {
         const add = cst.children[0]!.children[0]!;
         expect(add.type).toBe("add");
         expect(add.ignored).toBe(false);
+    });
+});
+
+describe("required repeat", () => {
+    const grammar = defineGrammar({
+        main: { def: seq(lit("a"), rep(true, lit("b"))) },
+        opt: { def: seq(lit("a"), rep(false, lit("b"))) },
+    });
+
+    test("one or more items match, up to end of input", () => {
+        parsesFully(grammar, "main", "ab");
+        parsesFully(grammar, "main", "abb");
+    });
+
+    test("zero items at end of input is a failure, not an empty match", () => {
+        const cst = parseToCST("a", T, 0, "main", grammar, "main");
+        expect(JSON.stringify(cst)).toContain('"errorExpected"');
+    });
+
+    test("zero items with input remaining is a failure", () => {
+        const cst = parseToCST("ac", T, 0, "main", grammar, "main");
+        expect(JSON.stringify(cst)).toContain('"errorExpected"');
+    });
+
+    test("an optional repeat still matches empty at end of input", () => {
+        parsesFully(grammar, "opt", "a");
     });
 });
