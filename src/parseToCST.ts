@@ -33,7 +33,7 @@ export class MatchFail {
         /** Remaining cut depth (Infinity for {@link die}) */
         readonly cut: number,
         /** The combinator that failed to match. */
-        readonly expected: GrammarCombinator,
+        readonly expected: GrammarCombinator<any, any>,
     ) {}
 }
 
@@ -55,17 +55,17 @@ interface Head {
  * One in-progress invocation on the left-recursion stack (a linked list via
  * `next`)
  */
-class LR {
+class LR<T> {
     constructor(
         readonly path: string,
         /**
          * Starts as a failure and is replaced by successively longer matches
          * while the left recursion grows
          */
-        public seed: CSTNode | MatchFail,
+        public seed: CSTNode<T> | MatchFail,
         /** Set once this invocation turns out to be part of a recursive cycle */
         public head: Head | undefined,
-        readonly next: LR | undefined,
+        readonly next: LR<T> | undefined,
     ) {}
 }
 
@@ -74,24 +74,24 @@ class LR {
  * LR) by `MemoLoc`. A caller may pass one in to reuse it across parses, but it
  * must be cleared whenever the grammar changes.
  */
-export type Memo = Record<MemoLoc, CSTNode | MatchFail | LR>;
+export type Memo<T> = Record<MemoLoc, CSTNode<T> | MatchFail | LR<T>>;
 
 /**
  * Parse text into a CST. The CST may contain error nodes if there were syntax
  * errors.
  */
-export const parseToCST = (
+export const parseToCST = <R extends string>(
     text: string,
     filename: Readonly<URL>,
     startIndex: number,
-    startRule: string,
-    grammar: Grammar,
-    recoverNodeType: string,
-    errorType = "BAD",
-    memo: Memo = {},
-): CSTNode => {
+    startRule: R,
+    grammar: Grammar<R>,
+    recoverNodeType: R,
+    errorType: R = "BAD" as any,
+    memo: Memo<R> = {},
+): CSTNode<R> => {
     const heads: (Head | undefined)[] = [];
-    var lrStack: LR | undefined;
+    var lrStack: LR<R> | undefined;
     const cutStack: [number][] = [];
     const cutDepth = () => last(cutStack)?.[0] ?? 0;
     const consumeCut = () => {
@@ -107,13 +107,17 @@ export const parseToCST = (
     const errorNode = (
         start: number,
         end: number,
-        expected: GrammarCombinator,
-    ): CSTNode => ({
-        type: errorType,
-        span: ctx.createSpan(start, end),
-        text: text.slice(start, end),
-        errorExpected: expected,
-    });
+        expected: GrammarCombinator<R, any>,
+    ): CSTNode<R> =>
+        new CSTNode(
+            ctx.createSpan(start, end),
+            errorType,
+            [],
+            false,
+            null,
+            text.slice(start, end),
+            expected,
+        );
     const inCommittedScope = () => cutStack.some((f) => f[0] > 0);
     /**
      * Probe `node` at index `j`, restoring cut/LR state afterwards (probes are
@@ -121,11 +125,11 @@ export const parseToCST = (
      */
     const probeAt = (
         path: string,
-        node: GrammarCombinator,
+        node: GrammarCombinator<R, any>,
         j: number,
-        locals: Locals,
+        locals: Locals<any>,
         dynamics: Dynamics,
-    ): CSTNode | null => {
+    ): CSTNode<R> | null => {
         const savedCuts = snapshotCuts();
         const savedLR = lrStack;
         const probe = applyRule(path, node, j, locals, dynamics);
@@ -138,11 +142,11 @@ export const parseToCST = (
     };
     const recover = (
         path: string,
-        item: GrammarCombinator,
+        item: GrammarCombinator<R, any>,
         i: number,
         fail: MatchFail,
-        children: CSTNode[],
-        locals: Locals,
+        children: CSTNode<R>[],
+        locals: Locals<any>,
         dynamics: Dynamics,
     ): number => {
         if (i >= text.length) return i;
@@ -157,21 +161,23 @@ export const parseToCST = (
     };
     const recoverChild = (
         path: string,
-        child: GrammarCombinator,
+        child: GrammarCombinator<R, any>,
         i: number,
         fail: MatchFail,
-        children: CSTNode[],
-        locals: Locals,
+        children: CSTNode<R>[],
+        locals: Locals<any>,
         dynamics: Dynamics,
     ): number | null => {
         for (var j = i + 1; j <= text.length; j++) {
             const probe = probeAt(path, child, j, locals, dynamics);
             if (!probe) continue;
-            children.push({
-                type: recoverNodeType,
-                span: ctx.createSpan(i, probe.span.end),
-                children: [errorNode(i, j, fail.expected), probe],
-            });
+            children.push(
+                new CSTNode(
+                    ctx.createSpan(i, probe.span.end),
+                    recoverNodeType,
+                    [errorNode(i, j, fail.expected), probe],
+                ),
+            );
             return probe.span.end;
         }
         return null;
@@ -182,11 +188,11 @@ export const parseToCST = (
      */
     const callRule = (
         path: string,
-        g: GrammarCombinator,
+        g: GrammarCombinator<R, any>,
         i: number,
-        locals: Locals,
+        locals: Locals<any>,
         dynamics: Dynamics,
-    ): CSTNode | MatchFail =>
+    ): CSTNode<R> | MatchFail =>
         (opDefs[g.op] as GrammarOpDef<unknown>).call(
             ctx,
             g,
@@ -199,7 +205,7 @@ export const parseToCST = (
      * Links `l` and every LR above it on the stack into a single head,
      * recording their rules as involved in the recursive cycle.
      */
-    const setupLeftRecursion = (path: string, l: LR) => {
+    const setupLeftRecursion = (path: string, l: LR<R>) => {
         l.head ??= { path, involved: new Set(), eval: new Set() };
         for (var s = lrStack; s && s.head !== l.head; s = s.next) {
             s.head = l.head;
@@ -214,12 +220,12 @@ export const parseToCST = (
     const leftRecurse = (
         mPath: string,
         path: string,
-        g: GrammarCombinator,
+        g: GrammarCombinator<R, any>,
         i: number,
-        l: LR,
-        locals: Locals,
+        l: LR<R>,
+        locals: Locals<any>,
         dynamics: Dynamics,
-    ): CSTNode | MatchFail => {
+    ): CSTNode<R> | MatchFail => {
         if (l.head?.path !== mPath) return l.seed;
         const loc = toMemoLoc(mPath, i);
         memo[loc] = l.seed;
@@ -233,7 +239,7 @@ export const parseToCST = (
             const ans = callRule(path, g, i, locals, dynamics);
             if (
                 ans instanceof MatchFail ||
-                ans.span.end <= (l.seed as CSTNode).span.end
+                ans.span.end <= (l.seed as CSTNode<R>).span.end
             )
                 break;
             l.seed = ans;
@@ -250,11 +256,11 @@ export const parseToCST = (
     const recall = (
         mPath: string,
         path: string,
-        g: GrammarCombinator,
+        g: GrammarCombinator<R, any>,
         i: number,
-        locals: Locals,
+        locals: Locals<any>,
         dynamics: Dynamics,
-    ): CSTNode | LR | MatchFail | undefined => {
+    ): CSTNode<R> | LR<R> | MatchFail | undefined => {
         const m = memo[toMemoLoc(mPath, i)];
         const h = heads[i];
         if (!h) return m as any;
@@ -274,11 +280,11 @@ export const parseToCST = (
      */
     const applyRule = (
         path: string,
-        g: GrammarCombinator,
+        g: GrammarCombinator<R, any>,
         i: number,
-        locals: Locals,
+        locals: Locals<any>,
         dynamics: Dynamics,
-    ): CSTNode | MatchFail => {
+    ): CSTNode<R> | MatchFail => {
         // While dynamic bindings are in effect, their chain's key is part of
         // this call's identity: a result computed under one ambient context
         // must never be reused under another. With no bindings in effect the
@@ -292,7 +298,7 @@ export const parseToCST = (
             }
             return m;
         }
-        const lr = (lrStack = new LR(
+        const lr = (lrStack = new LR<R>(
             dPath,
             new MatchFail(i, 0, g),
             undefined,
@@ -336,7 +342,7 @@ export const parseToCST = (
      * The services the operation definitions run against (see
      * {@link OpContext}).
      */
-    const ctx: OpContext = {
+    const ctx: OpContext<R> = {
         text,
         createSpan(begin, end) {
             const { 0: startLine, 1: startCol } = locate(begin);
@@ -380,7 +386,7 @@ export const parseToCST = (
     );
     if (ans instanceof MatchFail) {
         // The start rule didn't match at all: resync past any leading garbage.
-        const children: CSTNode[] = [];
+        const children: CSTNode<R>[] = [];
         const end = recover(
             "",
             rule(startRule),
@@ -394,7 +400,7 @@ export const parseToCST = (
             // give up entirely
             children.push(errorNode(startIndex, end, ans.expected));
         }
-        return { span: ctx.createSpan(startIndex, end), children };
+        return new CSTNode(ctx.createSpan(startIndex, end), null, children);
     }
     return ans;
 };

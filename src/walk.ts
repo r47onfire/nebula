@@ -9,13 +9,13 @@ import {
     opDefs,
 } from "./combinator";
 
-export interface CombinatorWalker<T, E> {
+export interface CombinatorWalker<T, E, R extends string, P extends string> {
     /**
      * Turn one raw scalar value into a T. Called once per scalar, and once per
      * element for scalar-array fields.
      */
     leaf(
-        node: GrammarCombinator,
+        node: GrammarCombinator<R, P>,
         field: string,
         action: MixAction,
         value: unknown,
@@ -31,16 +31,16 @@ export interface CombinatorWalker<T, E> {
             action: MixAction,
             value: T,
         ])[],
-        node: GrammarCombinator,
+        node: GrammarCombinator<R, P>,
         env: E,
     ): T; /** Substitute a node (and its environment) before folding it -- references. */
     resolve?(
-        node: GrammarCombinator,
+        node: GrammarCombinator<R, P>,
         env: E,
-    ): { node: GrammarCombinator; env: E } | undefined;
+    ): { node: GrammarCombinator<R, P>; env: E } | undefined;
     /** Adjust the environment for one child field -- scope-introducing nodes. */
     childEnv?(
-        node: GrammarCombinator,
+        node: GrammarCombinator<R, P>,
         field: string,
         action: MixAction,
         env: E,
@@ -49,15 +49,15 @@ export interface CombinatorWalker<T, E> {
      * A finished value for this node, if already known: cancels the walk below
      * it.
      */
-    precomputed?: (node: GrammarCombinator, env: E) => T | undefined;
+    precomputed?: (node: GrammarCombinator<R, P>, env: E) => T | undefined;
     /** Record a node's folded value for future `precomputed` hits. */
-    memoize?: (node: GrammarCombinator, value: T, env: E) => void;
+    memoize?: (node: GrammarCombinator<R, P>, value: T, env: E) => void;
 }
 
-export const walkCombinator = <T, E>(
-    g: GrammarCombinator,
+export const walkCombinator = <T, E, R extends string, P extends string>(
+    g: GrammarCombinator<R, P>,
     env: E,
-    walker: CombinatorWalker<T, E>,
+    walker: CombinatorWalker<T, E, R, P>,
 ): T => {
     const pre = walker.precomputed?.(g, env);
     if (pre !== undefined) return pre;
@@ -75,14 +75,14 @@ export const walkCombinator = <T, E>(
                     field,
                     action,
                     walkCombinator(
-                        value as GrammarCombinator,
+                        value as GrammarCombinator<R, P>,
                         walker.childEnv?.(g, field, action, env) ?? env,
                         walker,
                     ),
                 ]);
                 break;
             case MixAction.Children:
-                for (var c of value as GrammarCombinator[])
+                for (var c of value as GrammarCombinator<R, P>[])
                     fields.push([
                         field,
                         action,
@@ -115,7 +115,7 @@ export const walkCombinator = <T, E>(
     return result;
 };
 
-const basicHash: CombinatorWalker<number, void> = {
+const basicHash: CombinatorWalker<number, void, any, any> = {
     leaf(_node, _field, action, value) {
         switch (action) {
             case MixAction.String:
@@ -150,11 +150,14 @@ const basicHash: CombinatorWalker<number, void> = {
  * purely structural hash and is cached on the node itself, so hashing a tree
  * costs one walk, ever.
  */
-export const hashCombinator = (g: GrammarCombinator): number => {
+export const hashCombinator = (g: GrammarCombinator<any, any>): number => {
     return walkCombinator(g, undefined, basicHash);
 };
 
-type ResolveEnv = readonly [locals: Locals, dynamics: Dynamics];
+type ResolveEnv<P extends string> = readonly [
+    locals: Locals<P>,
+    dynamics: Dynamics,
+];
 
 /**
  * A hash of a combinator tree with its parameter references resolved: `param`
@@ -168,15 +171,19 @@ type ResolveEnv = readonly [locals: Locals, dynamics: Dynamics];
  * @throws If the grammar is invalid (there is a lexical or ambient parameter
  *   that isn't bound and has no default)
  */
-export const hashResolved = (
-    g: GrammarCombinator,
-    locals: Locals,
+export const hashResolved = <R extends string, P extends string>(
+    g: GrammarCombinator<R, P>,
+    locals: Locals<P>,
     dynamics: Dynamics,
     path: string,
 ): number => {
-    return walkCombinator(g, [locals, dynamics] as ResolveEnv, {
-        leaf: (basicHash as any as CombinatorWalker<number, ResolveEnv>).leaf,
-        fold: (basicHash as any as CombinatorWalker<number, ResolveEnv>).fold,
+    return walkCombinator(g, [locals, dynamics] as ResolveEnv<P>, {
+        leaf: (
+            basicHash as any as CombinatorWalker<number, ResolveEnv<P>, R, P>
+        ).leaf,
+        fold: (
+            basicHash as any as CombinatorWalker<number, ResolveEnv<P>, R, P>
+        ).fold,
         resolve(node, env) {
             if (node.op === "param") {
                 for (var frame = env[0]; frame; frame = frame.next) {
@@ -213,7 +220,7 @@ export const hashResolved = (
                 // dynamic scope the bind creates
                 const { name, value } = node as typeof node & {
                     name: string;
-                    value: GrammarCombinator;
+                    value: GrammarCombinator<R, P>;
                 };
                 return [
                     env[0],

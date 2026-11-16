@@ -17,12 +17,12 @@ import {
 const T = new URL("T:");
 
 /** Parse with a synthetic grammar and require a full, error-free parse. */
-const parsesFully = (
-    grammar: Grammar,
-    start: string,
+const parsesFully = <T extends string>(
+    grammar: Grammar<T>,
+    start: T,
     text: string,
-): CSTNode => {
-    const cst = parseToCST(text, T, 0, start, grammar, "exprs");
+): CSTNode<T | "exprs"> => {
+    const cst = parseToCST(text, T, 0, start, grammar, "exprs" as T);
     expect(JSON.stringify(cst)).not.toContain('"errorExpected"');
     expect(cst.span.end).toBe(text.length);
     return cst;
@@ -30,7 +30,7 @@ const parsesFully = (
 
 describe("parameterized rules", () => {
     test("param matches the given argument", () => {
-        const grammar: Grammar = {
+        const grammar = {
             main: rule("wrap", lit("("), lit(")")),
             wrap: [
                 ["open", "close"],

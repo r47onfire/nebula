@@ -13,45 +13,45 @@ import { hashResolved, walkCombinator } from "./walk";
  * {@link opDefs}) because Typescript is stupid and can't infer it from the shape
  * of {@link opDefs}.
  */
-export interface OpNodeShapes {
+export interface OpNodeShapes<R extends string, P extends string> {
     literal: { pattern: string | [string, string] };
     keyword: { tag: string; options: string[] };
     opsym: { tag: string; sym: string };
-    ignored: { child: GrammarCombinator };
-    rule: { name: string; args: GrammarCombinator[] };
-    param: { name: string; default: GrammarCombinator | undefined };
-    ambient: { name: string; default: GrammarCombinator | undefined };
+    ignored: { child: GrammarCombinator<R, P> };
+    rule: { name: R; args: GrammarCombinator<R, P>[] };
+    param: { name: P; default: GrammarCombinator<R, P> | undefined };
+    ambient: { name: string; default: GrammarCombinator<R, P> | undefined };
     bind: {
         name: string;
-        value: GrammarCombinator;
+        value: GrammarCombinator<R, P>;
         extend: boolean;
-        body: GrammarCombinator;
+        body: GrammarCombinator<R, P>;
     };
     sequence: {
-        items: GrammarCombinator[];
-        separator: GrammarCombinator | undefined;
+        items: GrammarCombinator<R, P>[];
+        separator: GrammarCombinator<R, P> | undefined;
     };
-    alternatives: { options: GrammarCombinator[]; first?: boolean };
-    optional: { child: GrammarCombinator };
-    repeat: { items: GrammarCombinator[]; required: boolean };
+    alternatives: { options: GrammarCombinator<R, P>[]; first?: boolean };
+    optional: { child: GrammarCombinator<R, P> };
+    repeat: { items: GrammarCombinator<R, P>[]; required: boolean };
     joined: {
-        joiner: GrammarCombinator;
-        element: GrammarCombinator;
+        joiner: GrammarCombinator<R, P>;
+        element: GrammarCombinator<R, P>;
         require2: boolean;
         trailing: boolean;
     };
     if: {
-        condition: GrammarCombinator;
-        ifTrue: GrammarCombinator;
-        ifFalse: GrammarCombinator;
+        condition: GrammarCombinator<R, P>;
+        ifTrue: GrammarCombinator<R, P>;
+        ifFalse: GrammarCombinator<R, P>;
     };
-    tag: { tag: string; child: GrammarCombinator };
+    tag: { tag: string; child: GrammarCombinator<R, P> };
     cut: { depth: number };
-    lookahead: { positive: boolean; child: GrammarCombinator };
-    nonempty: { child: GrammarCombinator };
-    sameline: { child: GrammarCombinator };
+    lookahead: { positive: boolean; child: GrammarCombinator<R, P> };
+    nonempty: { child: GrammarCombinator<R, P> };
+    sameline: { child: GrammarCombinator<R, P> };
     nothing: void;
-    try: { child: GrammarCombinator };
+    try: { child: GrammarCombinator<R, P> };
     die: { message: string };
 }
 
@@ -59,7 +59,7 @@ export interface OpNodeShapes {
  * The operation a {@link GrammarCombinator} performs; determines which of the
  * per-operation subtypes a node is, and so which named fields it has.
  */
-export type GrammarOp = keyof OpNodeShapes;
+export type GrammarOp = keyof OpNodeShapes<any, any>;
 
 /**
  * Every subtype carries a lazily filled cache of its structural hash (see
@@ -78,8 +78,11 @@ export interface CombinatorBase {
  * definitions (how a node is created, parsed, hashed, and rendered) live
  * together in the `opDefs` table below.
  */
-export type GrammarCombinator = {
-    [O in GrammarOp]: CombinatorBase & { readonly op: O } & OpNodeShapes[O];
+export type GrammarCombinator<R extends string, P extends string> = {
+    [O in GrammarOp]: CombinatorBase & { readonly op: O } & OpNodeShapes<
+            R,
+            P
+        >[O];
 }[GrammarOp];
 
 /**
@@ -93,8 +96,8 @@ export type GrammarCombinator = {
  */
 const instancePath = (
     name: string,
-    args: readonly GrammarCombinator[],
-    locals: Locals,
+    args: readonly GrammarCombinator<any, any>[],
+    locals: Locals<any>,
     dynamics: Dynamics,
     path: string,
 ): string =>
@@ -112,8 +115,8 @@ const instancePath = (
  * parameters it mentions in the call site's scope, not the callee's.
  */
 export interface ParamBinding {
-    readonly node: GrammarCombinator;
-    readonly locals: Locals;
+    readonly node: GrammarCombinator<any, any>;
+    readonly locals: Locals<any>;
 }
 
 /**
@@ -123,11 +126,11 @@ export interface ParamBinding {
  * A parameter scope: the bindings of one parameterized rule invocation, chained
  * to the enclosing scope. Scopes are immutable.
  */
-export interface ParamFrame {
-    readonly bindings: Readonly<Record<string, ParamBinding>>;
-    readonly next: Locals;
+export interface ParamFrame<P extends string> {
+    readonly bindings: Readonly<Record<P, ParamBinding>>;
+    readonly next: Locals<any>;
 }
-export type Locals = ParamFrame | undefined;
+export type Locals<P extends string> = ParamFrame<P> | undefined;
 
 /**
  * Internal implementation detail of the parser (used by dynamic {@link bind} and
@@ -138,8 +141,8 @@ export type Locals = ParamFrame | undefined;
  */
 export interface DynBindingFrame {
     readonly name: string;
-    readonly node: GrammarCombinator;
-    readonly locals: Locals;
+    readonly node: GrammarCombinator<any, any>;
+    readonly locals: Locals<any>;
     readonly next: Dynamics;
     /**
      * Unique string hash of this chain, mixed into memo keys to keep cache
@@ -198,24 +201,26 @@ export enum MixAction {
 export interface GrammarOpDef<N> {
     create: (...args: any[]) => N;
     call: (
-        ctx: OpContext,
+        ctx: OpContext<any>,
         node: N,
         path: string,
         i: number,
-        locals: Locals,
+        locals: Locals<any>,
         dynamics: Dynamics,
-    ) => CSTNode | MatchFail;
+    ) => CSTNode<any> | MatchFail;
     hashFields: readonly (readonly [field: keyof N, action: MixAction])[];
     describe: (node: N) => string;
 }
 
-const singleChild = (n: GrammarCombinator) => ({ child: n });
+const singleChild = (n: GrammarCombinator<any, any>) => ({ child: n });
 
 /**
  * The (weak) type of {@link opDefs}: every operation's definition, tied to its
  * declared node shape in {@link OpNodeShapes}.
  */
-export type OpDefs = { [O in GrammarOp]: GrammarOpDef<OpNodeShapes[O]> };
+export type OpDefs = {
+    [O in GrammarOp]: GrammarOpDef<OpNodeShapes<any, any>[O]>;
+};
 
 /** The definition of every grammar operation, keyed by its `op`. */
 export const opDefs = {
@@ -231,15 +236,26 @@ export const opDefs = {
                 re.lastIndex = i;
                 const match = re.exec(ctx.text);
                 return match
-                    ? {
-                          text: match[0],
-                          span: ctx.createSpan(i, i + match[0].length),
-                      }
-                    : new MatchFail(i, 0, node as GrammarCombinator);
+                    ? new CSTNode(
+                          ctx.createSpan(i, i + match[0].length),
+                          null,
+                          [],
+                          false,
+                          null,
+                          match[0],
+                      )
+                    : new MatchFail(i, 0, node as GrammarCombinator<any, any>);
             }
             return ctx.text.startsWith(pattern, i)
-                ? { text: pattern, span: ctx.createSpan(i, i + pattern.length) }
-                : new MatchFail(i, 0, node as GrammarCombinator);
+                ? new CSTNode(
+                      ctx.createSpan(i, i + pattern.length),
+                      null,
+                      [],
+                      false,
+                      null,
+                      pattern,
+                  )
+                : new MatchFail(i, 0, node as GrammarCombinator<any, any>);
         },
         hashFields: [["pattern", MixAction.Text]],
         describe: ({ pattern }) =>
@@ -262,13 +278,15 @@ export const opDefs = {
             re.lastIndex = i;
             const match = re.exec(ctx.text);
             return match
-                ? {
-                      text: match[0],
+                ? new CSTNode(
+                      ctx.createSpan(i, i + match[0].length),
+                      null,
+                      [],
+                      true,
                       tag,
-                      span: ctx.createSpan(i, i + match[0].length),
-                      ignored: true,
-                  }
-                : new MatchFail(i, 0, node as GrammarCombinator);
+                      match[0],
+                  )
+                : new MatchFail(i, 0, node as GrammarCombinator<any, any>);
         },
         hashFields: [
             ["tag", MixAction.Tag],
@@ -285,8 +303,10 @@ export const opDefs = {
             type OpMemo = Record<string, string[]>;
             const memo = ((ctx.memo as any).__operator ??= ((): OpMemo => {
                 const allOps = Object.values(ctx.grammar)
-                    .map((x): GrammarCombinator =>
-                        Array.isArray(x) ? x[1] : (x as GrammarCombinator),
+                    .map((x): GrammarCombinator<any, any> =>
+                        Array.isArray(x)
+                            ? x[1]
+                            : (x as GrammarCombinator<any, any>),
                     )
                     .reduce(
                         (prev, x) => [
@@ -313,13 +333,15 @@ export const opDefs = {
             const { sym, tag } = node;
             return ctx.text.startsWith(sym, i) &&
                 memo[sym]!.every((s) => !ctx.text.startsWith(s, i + sym.length))
-                ? {
-                      text: sym,
-                      span: ctx.createSpan(i, i + sym.length),
-                      ignored: true,
+                ? new CSTNode(
+                      ctx.createSpan(i, i + sym.length),
+                      null,
+                      [],
+                      true,
                       tag,
-                  }
-                : new MatchFail(i, 0, node as GrammarCombinator);
+                      sym,
+                  )
+                : new MatchFail(i, 0, node as GrammarCombinator<any, any>);
         },
         hashFields: [
             ["sym", MixAction.String],
@@ -337,11 +359,7 @@ export const opDefs = {
             const cst = ctx.applyRule(path + "/", child, i, locals, dynamics);
             return cst instanceof MatchFail
                 ? cst
-                : {
-                      ignored: true,
-                      span: cst.span,
-                      children: [cst],
-                  };
+                : new CSTNode(cst.span, null, [cst], true);
         },
         hashFields: [["child", MixAction.Child]],
         describe: ({ child }) => ";" + describeCombinator(child),
@@ -351,7 +369,7 @@ export const opDefs = {
     // rule
 
     rule: {
-        create: (r: string, ...args: GrammarCombinator[]) => ({
+        create: (r: string, ...args: GrammarCombinator<any, any>[]) => ({
             name: r,
             args,
         }),
@@ -359,7 +377,7 @@ export const opDefs = {
             const entry = ctx.grammar[name];
             if (!entry)
                 throw new Error("unknown named rule " + name + " at " + path);
-            var body: GrammarCombinator,
+            var body: GrammarCombinator<any, any>,
                 bodyPath = name,
                 bodyLocals = locals;
             if (isArray(entry)) {
@@ -388,7 +406,7 @@ export const opDefs = {
                     throw new Error(
                         "rule " + name + " takes no arguments at " + path,
                     );
-                body = entry as GrammarCombinator;
+                body = entry as GrammarCombinator<any, any>;
             }
             ctx.pushCutFrame();
             const cst = ctx.applyRule(bodyPath, body, i, bodyLocals, dynamics);
@@ -402,11 +420,7 @@ export const opDefs = {
             // Don't nest when the rule only delegated to another named rule
             if (cst.text === undefined && typeof cst.type === "string")
                 return cst;
-            return {
-                type: name,
-                span: cst.span,
-                children: [cst],
-            };
+            return new CSTNode(cst.span, name, [cst], false);
         },
         hashFields: [
             ["name", MixAction.String],
@@ -427,7 +441,7 @@ export const opDefs = {
     // param
 
     param: {
-        create: (p: string, defaultValue?: GrammarCombinator) => ({
+        create: (p: string, defaultValue?: GrammarCombinator<any, any>) => ({
             name: p,
             default: defaultValue,
         }),
@@ -473,7 +487,7 @@ export const opDefs = {
     // ambient
 
     ambient: {
-        create: (p: string, defaultValue?: GrammarCombinator) => ({
+        create: (p: string, defaultValue?: GrammarCombinator<any, any>) => ({
             name: p,
             default: defaultValue,
         }),
@@ -524,8 +538,8 @@ export const opDefs = {
         create: (
             p: string,
             extend: boolean,
-            value: GrammarCombinator,
-            body: GrammarCombinator,
+            value: GrammarCombinator<any, any>,
+            body: GrammarCombinator<any, any>,
         ) => ({ name: p, value, extend, body }),
         call(ctx, { name, value, extend, body }, path, i, locals, dynamics) {
             const frame: DynBindingFrame = {
@@ -561,14 +575,14 @@ export const opDefs = {
 
     sequence: {
         create: (
-            s: GrammarCombinator | undefined,
-            ...n: GrammarCombinator[]
+            s: GrammarCombinator<any, any> | undefined,
+            ...n: GrammarCombinator<any, any>[]
         ) => ({
             items: n,
             separator: s,
         }),
         call(ctx, node, path, i, locals, dynamics) {
-            const children: CSTNode[] = [];
+            const children: CSTNode<any>[] = [];
             const start = i;
             const { items, separator } = node,
                 len = items.length;
@@ -584,16 +598,13 @@ export const opDefs = {
                         dynamics,
                     );
                     if (sepThing instanceof MatchFail) {
-                        children.push({
-                            ignored: true,
-                            span: ctx.createSpan(i, i),
-                        });
+                        children.push(
+                            new CSTNode(ctx.createSpan(i, i), null, [], true),
+                        );
                     } else {
-                        children.push({
-                            ignored: true,
-                            span: sepThing.span,
-                            children: [sepThing],
-                        });
+                        children.push(
+                            new CSTNode(sepThing.span, null, [sepThing], true),
+                        );
                         i = sepThing.span.end;
                     }
                 }
@@ -629,7 +640,7 @@ export const opDefs = {
                 children.push(thisMatch);
                 i = thisMatch.span.end;
             }
-            return { children, span: ctx.createSpan(start, i) };
+            return new CSTNode(ctx.createSpan(start, i), null, children);
         },
         hashFields: [
             ["items", MixAction.Children],
@@ -645,14 +656,14 @@ export const opDefs = {
     // alt
 
     alternatives: {
-        create: (first: boolean, ...n: GrammarCombinator[]) => ({
+        create: (first: boolean, ...n: GrammarCombinator<any, any>[]) => ({
             options: n,
             first,
         }),
         call(ctx, node, path, i, locals, dynamics) {
             const { options: items, first } = node,
                 len = items.length;
-            const options: CSTNode[] = [];
+            const options: CSTNode<any>[] = [];
             var furthestFail: MatchFail | undefined;
             for (var j = 0; j < len; j++) {
                 const depthBefore = ctx.cutDepth();
@@ -692,7 +703,7 @@ export const opDefs = {
             }
             return options.length < 1
                 ? (furthestFail ??
-                      new MatchFail(i, 0, node as GrammarCombinator))
+                      new MatchFail(i, 0, node as GrammarCombinator<any, any>))
                 : options.reduce((a, b) => (b.span.end > a.span.end ? b : a));
         },
         hashFields: [
@@ -720,7 +731,7 @@ export const opDefs = {
             return cst instanceof MatchFail
                 ? cst.cut > 0
                     ? cst
-                    : { span: ctx.createSpan(i, i) }
+                    : new CSTNode(ctx.createSpan(i, i), null)
                 : cst;
         },
         hashFields: [["child", MixAction.Child]],
@@ -732,13 +743,13 @@ export const opDefs = {
 
     repeat: {
         // TODO: expose repeat_seq, it's implemented but not exposed by create + factories
-        create: (r: boolean, n: GrammarCombinator) => ({
+        create: (r: boolean, n: GrammarCombinator<any, any>) => ({
             items: [n],
             required: r,
         }),
         call(ctx, { items: nodes, required }, path, i, locals, dynamics) {
             const start = i;
-            const children: CSTNode[] = [];
+            const children: CSTNode<any>[] = [];
             const len = nodes.length;
             if (len > 0) {
                 for (var count = 0; ; count++) {
@@ -786,7 +797,7 @@ export const opDefs = {
                     i = thisMatch.span.end;
                 }
             }
-            return { children, span: ctx.createSpan(start, i) };
+            return new CSTNode(ctx.createSpan(start, i), null, children);
         },
         hashFields: [
             ["items", MixAction.Children],
@@ -802,8 +813,8 @@ export const opDefs = {
 
     joined: {
         create: (
-            j: GrammarCombinator,
-            n: GrammarCombinator,
+            j: GrammarCombinator<any, any>,
+            n: GrammarCombinator<any, any>,
             r2: boolean,
             t: boolean,
         ) => ({ joiner: j, element: n, require2: r2, trailing: t }),
@@ -816,7 +827,7 @@ export const opDefs = {
             dynamics,
         ) {
             const start = i;
-            const children: CSTNode[] = [];
+            const children: CSTNode<any>[] = [];
             const minimum = require2 ? 3 : 1; // children interleave elements and separators: two elements are 3 children
             var lastWasSep = false;
             for (;;) {
@@ -901,7 +912,7 @@ export const opDefs = {
                 i = s.span.end;
                 lastWasSep = true;
             }
-            return { span: ctx.createSpan(start, i), children };
+            return new CSTNode(ctx.createSpan(start, i), null, children);
         },
         hashFields: [
             ["element", MixAction.Child],
@@ -923,9 +934,9 @@ export const opDefs = {
 
     if: {
         create: (
-            c: GrammarCombinator,
-            t: GrammarCombinator,
-            f: GrammarCombinator,
+            c: GrammarCombinator<any, any>,
+            t: GrammarCombinator<any, any>,
+            f: GrammarCombinator<any, any>,
         ) => ({ condition: c, ifTrue: t, ifFalse: f }),
         call: (
             ctx,
@@ -963,17 +974,16 @@ export const opDefs = {
     // tag
 
     tag: {
-        create: (t: string, n: GrammarCombinator) => ({ tag: t, child: n }),
+        create: (t: string, n: GrammarCombinator<any, any>) => ({
+            tag: t,
+            child: n,
+        }),
         call(ctx, node, path, i, locals, dynamics) {
             const { tag: tagName, child } = node;
             const cst = ctx.applyRule(path + "/", child, i, locals, dynamics);
             return cst instanceof MatchFail
                 ? cst
-                : {
-                      tag: tagName,
-                      span: cst.span,
-                      children: [cst],
-                  };
+                : new CSTNode(cst.span, null, [cst], false, tagName);
         },
         hashFields: [
             ["tag", MixAction.Tag],
@@ -990,7 +1000,7 @@ export const opDefs = {
         create: (d = 1) => ({ depth: d }),
         call(ctx, { depth }, _, i) {
             ctx.applyCut(depth);
-            return { ignored: true, span: ctx.createSpan(i, i) };
+            return new CSTNode(ctx.createSpan(i, i), null, [], true);
         },
         hashFields: [["depth", MixAction.Number]],
         describe: ({ depth }) => "!" + depth,
@@ -1000,7 +1010,7 @@ export const opDefs = {
     // lookahead
 
     lookahead: {
-        create: (p: boolean, n: GrammarCombinator) => ({
+        create: (p: boolean, n: GrammarCombinator<any, any>) => ({
             positive: p,
             child: n,
         }),
@@ -1008,8 +1018,8 @@ export const opDefs = {
             const { positive, child } = node;
             const cst = ctx.applyRule(path + "/?", child, i, locals, dynamics);
             return cst instanceof MatchFail !== positive
-                ? { ignored: true, span: ctx.createSpan(i, i) }
-                : new MatchFail(i, 0, node as GrammarCombinator);
+                ? new CSTNode(ctx.createSpan(i, i), null, [], true)
+                : new MatchFail(i, 0, node as GrammarCombinator<any, any>);
         },
         hashFields: [
             ["positive", MixAction.Boolean],
@@ -1030,7 +1040,7 @@ export const opDefs = {
             return cst instanceof MatchFail
                 ? cst
                 : cst.span.end === i
-                  ? new MatchFail(i, 0, node as GrammarCombinator)
+                  ? new MatchFail(i, 0, node as GrammarCombinator<any, any>)
                   : cst;
         },
         hashFields: [["child", MixAction.Child]],
@@ -1045,7 +1055,7 @@ export const opDefs = {
             return cst instanceof MatchFail
                 ? cst
                 : cst.span.startLine !== cst.span.endLine
-                  ? new MatchFail(i, 0, node as GrammarCombinator)
+                  ? new MatchFail(i, 0, node as GrammarCombinator<any, any>)
                   : cst;
         },
         hashFields: [["child", MixAction.Child]],
@@ -1057,7 +1067,7 @@ export const opDefs = {
 
     nothing: {
         create: () => {},
-        call: (ctx, __, ___, i) => ({ span: ctx.createSpan(i, i) }),
+        call: (ctx, __, ___, i) => new CSTNode(ctx.createSpan(i, i), null),
         hashFields: [],
         describe: () => "()",
     },
@@ -1087,7 +1097,7 @@ export const opDefs = {
     die: {
         create: (m: string) => ({ message: m }),
         call: (_, node, __, i) =>
-            new MatchFail(i, Infinity, node as GrammarCombinator),
+            new MatchFail(i, Infinity, node as GrammarCombinator<any, any>),
         hashFields: [["message", MixAction.String]],
         describe: ({ message }) => "^" + stringify(message),
     },
@@ -1099,7 +1109,9 @@ export const opDefs = {
  * Renders a combinator in a compact PEG-like notation, via its operation's
  * `describe` in {@link opDefs}; for debugging grammars.
  */
-export const describeCombinator = (node: GrammarCombinator): string => {
+export const describeCombinator = (
+    node: GrammarCombinator<any, any>,
+): string => {
     // The lookup goes through the loose def type: indexing the table by a
     // not-yet-narrowed op cannot be typed precisely (the precise def for an
     // op is keyed by that op's own node shape).

@@ -9,12 +9,12 @@ import { CSTNode } from "./cst";
  *
  * The root is always a named node since a parse always starts at a named rule.
  */
-export const condenseCST = (cst: CSTNode): CSTNode => {
-    const condensedChildren = (node: CSTNode): CSTNode[] =>
+export const condenseCST = <R>(cst: CSTNode<R>): CSTNode<R> => {
+    const condensedChildren = (node: CSTNode<R>): CSTNode<R>[] =>
         (node.children ?? [])
             .filter((child) => !child.ignored)
             .flatMap(condense);
-    const condense = (node: CSTNode): CSTNode[] => {
+    const condense = (node: CSTNode<R>): CSTNode<R>[] => {
         // error nodes stay whole, their children unexamined, as in toAST
         if (node.errorExpected !== undefined) return [node];
         // named nodes survive, with their children condensed
@@ -41,20 +41,20 @@ export const condenseCST = (cst: CSTNode): CSTNode => {
  * map variant to implementation (e.g "+" to a plus builtin and "-" to a minus
  * builtin.)
  */
-export type CompilerTable<T> = Record<
-    string,
+export type CompilerTable<R extends string, T> = Record<
+    R,
     [fn: T, mapping?: Record<string, any>]
 >;
 
 /** Result from a single compile step. */
-export interface CompileBuilder<T> {
+export interface CompileBuilder<T, R> {
     /** The template value of AST. */
     val: T;
     /**
      * For all the value-path pairs in `tbc`, the CST node will be compiled, and
      * then inserted into the `val` using {@link assignPath}.
      */
-    tbc?: [CSTNode, PropertyKey[]][];
+    tbc?: [CSTNode<R>, PropertyKey[]][];
     /**
      * If `post` is set then the result, after assembling, will be passed back
      * into the `post` entry in the table (as a single node).
@@ -62,16 +62,17 @@ export interface CompileBuilder<T> {
     post?: string | null;
 }
 
-export const syncCompile = <T>(
-    node: CSTNode,
+export const syncCompile = <T, R extends string>(
+    node: CSTNode<R>,
     tab: CompilerTable<
+        R,
         (
             items: any,
             table: Record<string, any> | undefined,
-            node: CSTNode,
-        ) => CompileBuilder<T>
+            node: CSTNode<R>,
+        ) => CompileBuilder<T, R>
     >,
-    wrap: (compiled: any, node: CSTNode) => any,
+    wrap: (compiled: any, node: CSTNode<R>) => any,
     handleError: (message: any) => any,
 ): any => {
     const entry = tab[node.type!];
@@ -93,7 +94,7 @@ export const syncCompile = <T>(
                 }
             if (post) {
                 val = syncCompile(
-                    { type: post, children: val } as any as CSTNode,
+                    { type: post, children: val } as any as CSTNode<R>,
                     tab,
                     (x) => x,
                     handleError,

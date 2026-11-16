@@ -10,10 +10,10 @@ import { Span } from "./span";
  * grammar, the memoizing entry point for sub-parses, error recovery, and the
  * cut bookkeeping. Provided by `parseToCST`; see there for what each one does.
  */
-export interface OpContext {
+export interface OpContext<R extends string> {
     readonly text: string;
-    readonly memo: Memo;
-    readonly grammar: Grammar;
+    readonly memo: Memo<R>;
+    readonly grammar: Grammar<R>;
     /**
      * Create a span for the given index
      *
@@ -23,12 +23,16 @@ export interface OpContext {
     createSpan(begin: number, end: number): Span;
     applyRule(
         path: string,
-        node: GrammarCombinator,
+        node: GrammarCombinator<R, any>,
         i: number,
-        locals: Locals,
+        locals: Locals<any>,
         dynamics: Dynamics,
-    ): CSTNode | MatchFail;
-    errorNode(start: number, end: number, expected: GrammarCombinator): CSTNode;
+    ): CSTNode<R> | MatchFail;
+    errorNode(
+        start: number,
+        end: number,
+        expected: GrammarCombinator<R, any>,
+    ): CSTNode<R>;
     /**
      * Panic-mode recovery: scan forward for the next index where `item`
      * matches, turning all skipped source into a single error node. Returns the
@@ -41,11 +45,11 @@ export interface OpContext {
      */
     recover(
         path: string,
-        item: GrammarCombinator,
+        item: GrammarCombinator<R, any>,
         i: number,
         fail: MatchFail,
-        children: CSTNode[],
-        locals: Locals,
+        children: CSTNode<R>[],
+        locals: Locals<any>,
         dynamics: Dynamics,
     ): number;
     /**
@@ -60,11 +64,11 @@ export interface OpContext {
      */
     recoverChild(
         path: string,
-        child: GrammarCombinator,
+        child: GrammarCombinator<R, any>,
         i: number,
         fail: MatchFail,
-        children: CSTNode[],
-        locals: Locals,
+        children: CSTNode<R>[],
+        locals: Locals<any>,
         dynamics: Dynamics,
     ): number | null;
     /** Cut depth of the innermost open rule frame (0 if there is none). */
