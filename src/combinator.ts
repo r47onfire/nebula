@@ -385,7 +385,7 @@ export const opDefs = {
             // Mark the produced node as a name donor for the nearest
             // enclosing adopt. The registry lives on the parse memo, next
             // to the operator-guard memo, and dies with the parse.
-            (ctx.memo.__donors ??= new Set()).add(cst);
+            (ctx.memo.__donors ??= new WeakSet()).add(cst);
             return cst;
         },
         hashFields: [["child", MixAction.Child]],

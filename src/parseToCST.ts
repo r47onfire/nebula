@@ -79,7 +79,7 @@ export type Memo<T> = {
     [x in MemoLoc]: CSTNode<T> | MatchFail | LR<T>;
 } & {
     __operators?: OpMemo;
-    __donors?: Set<CSTNode<T>>;
+    __donors?: WeakSet<CSTNode<T>>;
 };
 
 /**
