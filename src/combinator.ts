@@ -7,6 +7,8 @@ import { CSTNode } from "./cst";
 import { MatchFail } from "./parseToCST";
 import { hashResolved, walkCombinator } from "./walk";
 
+export type OpMemo = Record<string, string[]>;
+
 /**
  * The fields of every operation's node, one entry per operation. This is a
  * separate interface (rather than being inferred from the shape of
@@ -18,6 +20,8 @@ export interface OpNodeShapes<R extends string, P extends string> {
     keyword: { tag: string; options: string[] };
     opsym: { tag: string; sym: string };
     ignored: { child: GrammarCombinator<R, P> };
+    donate: { child: GrammarCombinator<R, P> };
+    adopt: { child: GrammarCombinator<R, P> };
     rule: { name: R; args: GrammarCombinator<R, P>[] };
     param: { name: P; default: GrammarCombinator<R, P> | undefined };
     ambient: { name: string; default: GrammarCombinator<R, P> | undefined };
@@ -310,8 +314,7 @@ export const opDefs = {
     opsym: {
         create: (t: string, op: string) => ({ tag: t, sym: op }),
         call(ctx, node, _, i) {
-            type OpMemo = Record<string, string[]>;
-            const memo = ((ctx.memo as any).__operator ??= ((): OpMemo => {
+            const memo = (ctx.memo.__operators ??= ((): OpMemo => {
                 const allOps = Object.values(ctx.grammar)
                     .map((x): GrammarCombinator<any, any> => x.def)
                     .reduce(
@@ -335,7 +338,7 @@ export const opDefs = {
                 );
                 // console.log(memo);
                 return memo;
-            })()) as OpMemo;
+            })());
             const { sym, tag } = node;
             return ctx.text.startsWith(sym, i) &&
                 memo[sym]!.every((s) => !ctx.text.startsWith(s, i + sym.length))
@@ -369,6 +372,96 @@ export const opDefs = {
         },
         hashFields: [["child", MixAction.Child]],
         describe: ({ child }) => ";" + describeCombinator(child),
+    },
+
+    // ---------------------------------------------------------------------------
+    // donate / adopt
+
+    donate: {
+        create: singleChild,
+        call(ctx, { child }, path, i, locals, dynamics) {
+            const cst = ctx.applyRule(path + "/", child, i, locals, dynamics);
+            if (cst instanceof MatchFail) return cst;
+            // Mark the produced node as a name donor for the nearest
+            // enclosing adopt. The registry lives on the parse memo, next
+            // to the operator-guard memo, and dies with the parse.
+            (ctx.memo.__donors ??= new Set()).add(cst);
+            return cst;
+        },
+        hashFields: [["child", MixAction.Child]],
+        describe: ({ child }) => describeCombinator(child),
+    },
+
+    adopt: {
+        create: singleChild,
+        call(ctx, { child }, path, i, locals, dynamics) {
+            const cst = ctx.applyRule(path + "/", child, i, locals, dynamics);
+            if (cst instanceof MatchFail) return cst;
+            // Only an unnamed container can take a new name; named nodes,
+            // leaves, and error nodes pass through untouched.
+            if (
+                cst.type !== null ||
+                cst.text !== null ||
+                cst.errorExpected !== undefined
+            )
+                return cst;
+            const donors = ctx.memo.__donors;
+            const donorIndex = donors
+                ? cst.children.findIndex(
+                      (n) => n.type !== null && donors.has(n),
+                  )
+                : -1;
+            if (donorIndex < 0) return cst;
+            const donor = cst.children[donorIndex]!;
+            // The container takes the donor's name, and the donor dissolves
+            // into it: unnamed containers inside the donor flatten away,
+            // the donor's own text leaves are flagged ignored (the
+            // operator's spelling is not part of the AST), and any named
+            // children it captured  are promoted into the container in its
+            // lace. Every leaf stays in the tree exactly once, in order,
+            // so the source is still reproduced exactly.
+            const dissolve = (
+                children: readonly CSTNode<any>[],
+            ): CSTNode<any>[] =>
+                children.flatMap((n) => {
+                    if (n.text !== null)
+                        return [
+                            n.ignored
+                                ? n
+                                : new CSTNode(
+                                      n.span,
+                                      n.type,
+                                      n.children,
+                                      true,
+                                      n.tag,
+                                      n.text,
+                                      n.errorExpected,
+                                  ),
+                        ];
+                    if (
+                        n.type === null &&
+                        !n.ignored &&
+                        n.errorExpected === undefined
+                    )
+                        return dissolve(n.children);
+                    return [n];
+                });
+            return new CSTNode(
+                cst.span,
+                donor.type,
+                [
+                    ...cst.children.slice(0, donorIndex),
+                    ...dissolve(donor.children),
+                    ...cst.children.slice(donorIndex + 1),
+                ],
+                cst.ignored,
+                cst.tag,
+                cst.text,
+                cst.errorExpected,
+            );
+        },
+        hashFields: [["child", MixAction.Child]],
+        describe: ({ child }) => describeCombinator(child),
     },
 
     // ---------------------------------------------------------------------------

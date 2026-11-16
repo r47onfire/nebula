@@ -1,14 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import {
+    adopt,
     alt,
     ambient,
     bind,
     CSTNode,
     defineGrammar,
+    donate,
     Grammar,
     lit,
     no,
     nothing,
+    op,
     param,
     parseToCST,
     regex,
@@ -326,5 +329,123 @@ describe("parameter defaults", () => {
             },
         });
         parsesFully(nested, "main", "abc");
+    });
+});
+
+describe("name adoption", () => {
+    // a miniature of the shared binary-operator rule pattern: the level
+    // donates its operator, the shared rule's node adopts its name
+    const grammar: Grammar = {
+        main: { def: rule("sum") },
+        sum: {
+            def: rule(
+                "binary_op",
+                rule("num"),
+                donate(rule("sum_op")),
+                rule("sum"),
+                rule("num"),
+                nothing(),
+            ),
+        },
+        binary_op: {
+            params: ["nomatch", "op", "lhs", "rhs", "guard"],
+            def: alt(
+                adopt(seq(param("lhs"), param("op"), param("rhs"))),
+                param("nomatch"),
+            ),
+        },
+        sum_op: { def: alt(rule("add"), rule("sub")) },
+        add: { def: op("operator", "+") },
+        sub: { def: op("operator", "-") },
+        num: { def: regex(/[0-9]+/) },
+    };
+    const leafText = (node: CSTNode<any>): string =>
+        node.text ?? node.children.map(leafText).join("");
+
+    test("the node takes the operator's name, the operator dissolves", () => {
+        const cst = parseToCST("1+2", T, 0, "main", grammar, "exprs");
+        expect(cst.type).toBe("add");
+        expect(cst.children.map((n) => n.type)).toEqual(["num", null, "num"]);
+        // the operator's spelling stays in the tree as an ignored leaf, so
+        // the leaves still reproduce the source exactly
+        expect(cst.children[1]!.text).toBe("+");
+        expect(cst.children[1]!.ignored).toBe(true);
+        expect(leafText(cst)).toBe("1+2");
+    });
+
+    test("a donor's named children are promoted into the adopted node", () => {
+        // like a reduce pipe, whose operator production captures an
+        // initial value in brackets
+        const payload: Grammar = {
+            main: { def: rule("sum") },
+            sum: {
+                def: rule(
+                    "binary_op",
+                    rule("num"),
+                    donate(rule("sum_op")),
+                    rule("sum"),
+                    rule("num"),
+                    nothing(),
+                ),
+            },
+            binary_op: {
+                params: ["nomatch", "op", "lhs", "rhs", "guard"],
+                def: alt(
+                    adopt(seq(param("lhs"), param("op"), param("rhs"))),
+                    param("nomatch"),
+                ),
+            },
+            sum_op: { def: alt(rule("add"), rule("red")) },
+            add: { def: op("operator", "+") },
+            red: {
+                def: seq(
+                    op("operator", "|+>"),
+                    lit("["),
+                    rule("num"),
+                    lit("]"),
+                ),
+            },
+            num: { def: regex(/[0-9]+/) },
+        };
+        const cst = parseToCST("1|+>[2]3", T, 0, "main", payload, "exprs");
+        expect(cst.type).toBe("red");
+        // lhs, the captured 2, and rhs are all direct children now
+        const nums = cst.children.filter((n) => n.type === "num");
+        expect(nums.map(leafText)).toEqual(["1", "2", "3"]);
+        expect(leafText(cst)).toBe("1|+>[2]3");
+    });
+
+    test("adoption is per instance, through left recursion", () => {
+        const cst = parseToCST("1+2-3", T, 0, "main", grammar, "exprs");
+        expect(cst.type).toBe("sub");
+        expect(cst.children[0]!.type).toBe("add");
+        expect(leafText(cst)).toBe("1+2-3");
+    });
+
+    test("no operator means no adoption", () => {
+        const cst = parseToCST("1", T, 0, "main", grammar, "exprs");
+        expect(cst.type).toBe("num");
+    });
+
+    test("adopt with no donated child passes the node through", () => {
+        const plain: Grammar = {
+            main: { def: adopt(seq(lit("a"), lit("b"))) },
+        };
+        const cst = parseToCST("ab", T, 0, "main", plain, "exprs");
+        // the unnamed container is adopted by nobody, so the start rule's
+        // own wrap names it as usual
+        expect(cst.type).toBe("main");
+        expect(cst.children[0]!.type).toBe(null);
+    });
+
+    test("donate with no enclosing adopt has no effect", () => {
+        const plain: Grammar = {
+            main: { def: seq(donate(rule("add")), lit("x")) },
+            add: { def: op("operator", "+") },
+        };
+        const cst = parseToCST("+x", T, 0, "main", plain, "exprs");
+        const add = cst.children[0]!.children[0]!;
+        expect(add.type).toBe("add");
+        expect(add.ignored).toBe(false);
     });
 });

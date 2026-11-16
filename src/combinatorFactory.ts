@@ -63,6 +63,33 @@ export const ignored: <R extends string = never, P extends string = never>(
     "ignored",
 ) as any;
 /**
+ * Parses `node` and marks the resulting CST node as a name donor for the
+ * nearest enclosing {@link adopt}: if the donated node lands as a direct child
+ * of the node an `adopt` produces, that node takes the donor's type as its own
+ * name, and the donor is flagged {@link CSTNode.ignored | ignored} (they stay in
+ * the tree, so the source is still reproduced exactly, but they are dropped
+ * when the CST is condensed) while any named children it captured are promoted
+ * into the adopted node in its place. A donated node that never lands as a
+ * direct child of an adopted node has no effect.
+ */
+export const donate: <R extends string = never, P extends string = never>(
+    node: GrammarCombinator<R, P>,
+) => GrammarCombinator<NoInfer<R>, NoInfer<P>> = factoryFactory(
+    "donate",
+) as any;
+/**
+ * Parses `node`; if the result is an unnamed container with a direct child that
+ * was marked by {@link donate}, the container adopts that child's type as its
+ * own name (and the child dissolves into it; see {@link donate}). Named nodes,
+ * leaves, error nodes, and containers with no donated child pass through
+ * unchanged. This is how a shared parameterized rule (such as a generic
+ * binary-operator rule) can produce nodes named after the specific thing that
+ * matched inside it.
+ */
+export const adopt: <R extends string = never, P extends string = never>(
+    node: GrammarCombinator<R, P>,
+) => GrammarCombinator<NoInfer<R>, NoInfer<P>> = factoryFactory("adopt") as any;
+/**
  * Invokes the named rule from the grammar; the result is wrapped in a node
  * {@link CSTNode.type | typed} `ruleName`, unless the rule only delegated to
  * another named rule. Extra combinators are arguments, for calling a

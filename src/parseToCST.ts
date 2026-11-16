@@ -6,6 +6,7 @@ import {
     GrammarOpDef,
     Locals,
     opDefs,
+    OpMemo,
 } from "./combinator";
 import { die, rule } from "./combinatorFactory";
 import { OpContext } from "./context";
@@ -74,7 +75,12 @@ class LR<T> {
  * LR) by `MemoLoc`. A caller may pass one in to reuse it across parses, but it
  * must be cleared whenever the grammar changes.
  */
-export type Memo<T> = Record<MemoLoc, CSTNode<T> | MatchFail | LR<T>>;
+export type Memo<T> = {
+    [x in MemoLoc]: CSTNode<T> | MatchFail | LR<T>;
+} & {
+    __operators?: OpMemo;
+    __donors?: Set<CSTNode<T>>;
+};
 
 /**
  * Parse text into a CST. The CST may contain error nodes if there were syntax
