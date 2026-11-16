@@ -313,11 +313,7 @@ export const opDefs = {
             type OpMemo = Record<string, string[]>;
             const memo = ((ctx.memo as any).__operator ??= ((): OpMemo => {
                 const allOps = Object.values(ctx.grammar)
-                    .map((x): GrammarCombinator<any, any> =>
-                        Array.isArray(x)
-                            ? x[1]
-                            : (x as GrammarCombinator<any, any>),
-                    )
+                    .map((x): GrammarCombinator<any, any> => x.def)
                     .reduce(
                         (prev, x) => [
                             ...prev,
@@ -387,10 +383,10 @@ export const opDefs = {
             const entry = ctx.grammar[name];
             if (!entry)
                 throw new Error("unknown named rule " + name + " at " + path);
-            var body: GrammarCombinator<any, any>,
-                bodyPath = name,
+            var bodyPath = name,
                 bodyLocals = locals;
-            if (isArray(entry)) {
+            const { def, params } = entry;
+            if (params && params.length > 0) {
                 // Parameterized rule: bind the supplied arguments, each
                 // capturing the scope in effect at this call site, and
                 // evaluate the body under a memo path that names the
@@ -400,7 +396,6 @@ export const opDefs = {
                 // end; an omitted parameter remains unbound, so a reference
                 // through `param(name, default)` uses its default, while a
                 // reference with no default reports the parameter as unbound.
-                const { 0: params, 1: ruleBody } = entry;
                 if (args.length > params.length)
                     throw new Error(
                         `too many arguments to rule ${name} (expected ${params.length} but got ${args.length}) at ${path}`,
@@ -408,7 +403,6 @@ export const opDefs = {
                 const bindings: Record<string, ParamBinding> = {};
                 for (var k = 0; k < args.length; k++)
                     bindings[params[k]!] = { node: args[k]!, locals };
-                body = ruleBody;
                 bodyPath = instancePath(name, args, locals, dynamics, path);
                 bodyLocals = { bindings, next: locals };
             } else {
@@ -416,10 +410,9 @@ export const opDefs = {
                     throw new Error(
                         "rule " + name + " takes no arguments at " + path,
                     );
-                body = entry as GrammarCombinator<any, any>;
             }
             ctx.pushCutFrame();
-            const cst = ctx.applyRule(bodyPath, body, i, bodyLocals, dynamics);
+            const cst = ctx.applyRule(bodyPath, def, i, bodyLocals, dynamics);
             const frameDepth = ctx.popCutFrame();
             if (cst instanceof MatchFail) {
                 const d = max(cst.cut, frameDepth);

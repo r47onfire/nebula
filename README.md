@@ -20,7 +20,7 @@ npm install github:@r47onfire/nebula
 
 ```ts
 import {
-    Grammar,
+    defineGrammar,
     lit,
     param,
     parseToCST,
@@ -29,12 +29,15 @@ import {
     seq,
 } from "@r47onfire/nebula";
 
-const grammar: Grammar = {
-    main: rule("wrap", lit("("), lit(")")),
+const grammar = defineGrammar({
+    main: { def: rule("wrap", lit("("), lit(")")) },
     // a parameterized rule: `wrap` is called with two combinator arguments
-    wrap: [["open", "close"], seq(param("open"), rule("word"), param("close"))],
-    word: regex(/[a-z]+/),
-};
+    wrap: {
+        params: ["open", "close"],
+        def: seq(param("open"), rule("word"), param("close")),
+    },
+    word: { def: regex(/[a-z]+/) },
+});
 
 const cst = parseToCST(
     "(abc)",
