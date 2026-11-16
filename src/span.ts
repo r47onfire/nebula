@@ -13,3 +13,16 @@ export class Span {
         public readonly endCol: number,
     ) {}
 }
+
+/** Whether two (possibly undefined) {@link Location}s denote the same place. */
+export const locationsEqual = (
+    location1: Span | undefined,
+    location2: Span | undefined,
+) => {
+    if (!location1 || !location2) return location1 === location2;
+    return (
+        location1.file.href === location2.file.href &&
+        location1.begin === location2.begin &&
+        location1.end === location2.end
+    );
+};

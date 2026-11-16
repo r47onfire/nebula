@@ -52,14 +52,14 @@
     "author": "dragoncoder047",
     "license": "AGPL-3.0-only",
     "devDependencies": {
+        "@skillit/typedoc": "^2.0.4",
         "@types/bun": "^1.4.4",
         "@types/node": "^26.6.6",
         "nodemon": "^3.1.14",
-        "@skillit/typedoc": "^2.0.4",
         "typedoc": "^0.28.20"
     },
     "dependencies": {
         "@r47onfire/game-math": "github:r47onfire/game-math",
-        "lib0": "^0.2.119"
+        "lib0": "^0.2.120"
     }
 }
