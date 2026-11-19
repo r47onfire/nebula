@@ -7,7 +7,7 @@ import {
     Locals,
     MixAction,
     opDefs,
-} from "./combinator";
+} from "../combinator";
 
 export interface CombinatorWalker<T, E, R extends string, P extends string> {
     /**

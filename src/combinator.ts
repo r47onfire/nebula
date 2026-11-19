@@ -5,7 +5,7 @@ import { ambient, bind, nothing, param, rule, seq } from "./combinatorFactory";
 import { OpContext } from "./context";
 import { CSTNode } from "./cst";
 import { MatchFail } from "./parseToCST";
-import { hashResolved, walkCombinator } from "./walk";
+import { hashResolved, walkCombinator } from "./walk/combinator";
 
 export type OpMemo = Record<string, string[]>;
 
