@@ -1,9 +1,12 @@
+import type { ignored } from "./combinatorFactory";
 import { CSTNode } from "./cst";
 
 /**
  * Condense a CST as much as possible, preserving metadata spans:
  *
- * - Ignored children are removed
+ * - {@link ignored} children are removed
+ * - A named node whose only child is considered ignored is itself considered
+ *   ignored (recursively)
  * - Unnamed container nodes are merged into their parent
  * - Named nodes, text leaves, and error nodes stay as they are
  *
@@ -13,8 +16,22 @@ export const condenseCST = <R>(cst: CSTNode<R>): CSTNode<R> => {
     const condensedChildren = (node: CSTNode<R>): CSTNode<R>[] =>
         node.children.filter((child) => !child.ignored).flatMap(condense);
     const condense = (node: CSTNode<R>): CSTNode<R>[] => {
-        // error nodes stay whole, their children unexamined, as in toAST
+        // error nodes stay whole, their children unexamined
         if (node.errorExpected !== undefined) return [node];
+        if (node.type !== null && node.text === null) {
+            let n = node;
+            while (
+                n.errorExpected === undefined &&
+                n.text === null &&
+                n.children.length === 1
+            ) {
+                const child = n.children[0]!;
+                if (child.ignored && child.type === null && child.text === null)
+                    return [];
+                if (child.type === null) break;
+                n = child;
+            }
+        }
         // named nodes survive, with their children condensed
         if (node.type !== null)
             return [

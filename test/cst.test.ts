@@ -199,3 +199,84 @@ describe("immutable at runtime", () => {
         }).toThrowError(readonly);
     });
 });
+
+describe("condenseCST", () => {
+    /** The shape `ignored(x)` produces: an unnamed ignored wrapper around x */
+    const ign = (child: CSTNode<any>) => unnamed([child], true);
+
+    test("named node whose only child is ignored is dropped", () => {
+        // the shape of a rule whose body is ignored(...): the named node
+        // inherits the ignoredness instead of surviving as an empty husk
+        const root = node("root", [
+            node("blank", [ign(unnamed([leaf(" ")]))]),
+            node("a", [leaf("1")]),
+        ]);
+        expect(condenseCST(root).children.map(label)).toEqual(["a"]);
+    });
+
+    test("ignored inheritance is transitive", () => {
+        // x(x(x(ignored(...)))): every level's whole body is the next,
+        // so every level drops, not just the innermost
+        const root = node("root", [
+            node("x", [node("x", [node("x", [ign(unnamed([leaf(" ")]))])])]),
+            node("a", [leaf("1")]),
+        ]);
+        expect(condenseCST(root).children.map(label)).toEqual(["a"]);
+    });
+
+    test("a delegation chain that bottoms out at a marker stays", () => {
+        const root = node("root", [
+            node("x", [
+                node("dot", [
+                    new CSTNode<any>(span, null, [], true, null, "."),
+                ]),
+            ]),
+        ]);
+        const x = condenseCST(root).children[0]!;
+        expect(x.type).toBe("x");
+        expect(x.children.map(label)).toEqual(["dot"]);
+    });
+
+    test("node with multiple children always stays 1", () => {
+        const root = node("root", [
+            node("x", [node("y", [ign(unnamed([leaf(" ")])), leaf("1")])]),
+        ]);
+        const x = condenseCST(root).children[0]!;
+        expect(x.type).toBe("x");
+        expect(x.children[0]!.children.map(label)).toEqual(['"1"']);
+    });
+
+    test("node with multiple children always stays 2", () => {
+        // not the whole body: the ignored child drops, the non-ignored
+        // node remains
+        const root = node("root", [
+            node("pair", [ign(leaf("x")), node("a", [leaf("1")])]),
+        ]);
+        const pair = condenseCST(root).children[0]!;
+        expect(pair.type).toBe("pair");
+        expect(pair.children.map(label)).toEqual(["a"]);
+    });
+
+    test("node with multiple children always stays 3", () => {
+        // e.g. an empty list: its brackets are ignored leaves, but
+        // the node itself was never declared droppable
+        const root = node("root", [
+            node("collection", [
+                new CSTNode<any>(span, null, [], true, null, "["),
+                new CSTNode<any>(span, null, [], true, null, "]"),
+            ]),
+        ]);
+        expect(condenseCST(root).children.map(label)).toEqual(["collection"]);
+    });
+
+    test("ignored text leaves go away without deleting their parent", () => {
+        // the shape of a marker node like an operator: the leaf is
+        // droppable punctuation, the node itself is the meaning
+        const root = node("root", [
+            node("dot", [new CSTNode<any>(span, null, [], true, null, ".")]),
+        ]);
+        const dot = condenseCST(root).children[0]!;
+        expect(dot.type).toBe("dot");
+        expect(dot.children).toEqual([]);
+    });
+});
