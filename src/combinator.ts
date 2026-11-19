@@ -6,7 +6,7 @@ import { ambient, bind, nothing, param, rule, seq } from "./combinatorFactory";
 import { OpContext } from "./context";
 import { CSTNode } from "./cst";
 import { MatchFail } from "./parseToCST";
-import { hashResolved, walkCombinator } from "./walk/combinator";
+import { serializeResolved, walkCombinator } from "./walk/combinator";
 
 export type OpMemo = Record<string, string[]>;
 
@@ -103,8 +103,8 @@ export type GrammarCombinator<R extends string, P extends string> = {
 
 /**
  * The memo path of a parameterized rule invocation names the instance by the
- * rule name plus the resolved hashes of its arguments (see
- * {@link hashResolved}), so different instances of the same rule memoize
+ * rule name plus the resolved serializations of its arguments (see
+ * {@link serializeResolved}), so different instances of the same rule memoize
  * separately. Resolving matters: `rule("e", param("op"))` inside a rule where
  * `op` is bound to `lit("+")` is the _same_ instance as `rule("e", lit("+"))`
  * (in particular, a rule recursing on its own parameters recurses on itself, so
@@ -119,9 +119,7 @@ const instancePath = (
 ): string =>
     name +
     "(" +
-    args
-        .map((a) => hashResolved(a, locals, dynamics, path).toString(36))
-        .join(",") +
+    args.map((a) => serializeResolved(a, locals, dynamics, path)).join(",") +
     ")";
 
 /**
@@ -161,8 +159,9 @@ export interface DynBindingFrame {
     readonly locals: Locals<any>;
     readonly next: Dynamics;
     /**
-     * Unique string hash of this chain, mixed into memo keys to keep cache
-     * entries specific to this exact scope's bindings.
+     * Unique string form of this chain (each binding's name plus the resolved
+     * serialization of its value), mixed into memo keys to keep cache entries
+     * specific to this exact scope's bindings.
      */
     readonly key: string;
 }
@@ -653,7 +652,7 @@ export const opDefs = {
                     (dynamics ? dynamics.key + "/" : "") +
                     name +
                     "#" +
-                    hashResolved(value, locals, dynamics, path).toString(36),
+                    serializeResolved(value, locals, dynamics, path),
             };
             return ctx.applyRule(path + "/b", body, i, locals, frame);
         },

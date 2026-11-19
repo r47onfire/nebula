@@ -1,4 +1,5 @@
 import { javaHash } from "@r47onfire/game-math";
+import { deflateSync, strToU8 } from "fflate";
 import { isArray } from "lib0/array";
 import { imul } from "lib0/math";
 import {
@@ -159,81 +160,125 @@ type ResolveEnv<P extends string> = readonly [
 ];
 
 /**
- * A hash of a combinator tree with its parameter references resolved: `param`
- * nodes contribute the hash of the argument they name (resolved in the lexical
- * scope), `ambient` nodes the hash of the dynamic binding they name (resolved
- * in the dynamic scope captured by that binding, so a binding's value never
- * depends on itself), and `bind` nodes hash their body under the dynamic scope
- * the bind creates. Nothing is cached, since the result depends on the scopes,
- * not just the tree.
+ * The canonical serialization of a combinator tree with its parameter
+ * references resolved: `param` nodes contribute the serialization of the
+ * argument they name (resolved in the lexical scope), `ambient` nodes the
+ * serialization of the dynamic binding they name (resolved in the dynamic scope
+ * captured by that binding, so a binding's value never depends on itself), and
+ * `bind` nodes serialize their body under the dynamic scope the bind creates.
+ * Nothing is cached, since the result depends on the scopes, not just the
+ * tree.
+ *
+ * The serialization exactly encodes the fields that feed the combinator hash
+ * (see `hashFields` on the operation definitions), in definition order, so it
+ * can (in theory) be unparsed back into the resolved tree it came from.
+ * Currently, the format is undocumented and there is no parsing function, but
+ * there is also really no need to be parsing it.
  *
  * @throws If the grammar is invalid (there is a lexical or ambient parameter
  *   that isn't bound and has no default)
  */
-export const hashResolved = <R extends string, P extends string>(
+export const serializeResolved = <R extends string, P extends string>(
     g: GrammarCombinator<R, P>,
     locals: Locals<P>,
     dynamics: Dynamics,
     path: string,
-): number => {
-    return walkCombinator(g, [locals, dynamics] as ResolveEnv<P>, {
-        leaf: (
-            basicHash as any as CombinatorWalker<number, ResolveEnv<P>, R, P>
-        ).leaf,
-        fold: (
-            basicHash as any as CombinatorWalker<number, ResolveEnv<P>, R, P>
-        ).fold,
-        resolve(node, env) {
-            if (node.op === "param") {
-                for (let frame = env[0]; frame; frame = frame.next) {
-                    const binding = frame.bindings[node.name];
-                    if (binding)
-                        return {
-                            node: binding.node,
-                            env: [binding.locals, env[1]] as const,
+): string =>
+    encodeKeyString(
+        JSON.stringify(
+            walkCombinator(g, [locals, dynamics] as ResolveEnv<P>, {
+                leaf: (_node, _field, _action, value) => value,
+                fold(fields, node) {
+                    const out: Record<string, unknown> = { op: node.op };
+                    for (const { 0: field, 1: action, 2: value } of fields) {
+                        if (
+                            action === MixAction.Children ||
+                            action === MixAction.StringArray
+                        ) {
+                            const arr = out[field] as unknown[] | undefined;
+                            if (arr) arr.push(value);
+                            else out[field] = [value];
+                        } else if (field in out) {
+                            // a repeated scalar entry: a text field holding an
+                            // array of strings
+                            const prev = out[field];
+                            if (isArray(prev)) prev.push(value);
+                            else out[field] = [prev, value];
+                        } else out[field] = value;
+                    }
+                    return out;
+                },
+                resolve(node, env) {
+                    if (node.op === "param") {
+                        for (let frame = env[0]; frame; frame = frame.next) {
+                            const binding = frame.bindings[node.name];
+                            if (binding)
+                                return {
+                                    node: binding.node,
+                                    env: [binding.locals, env[1]] as const,
+                                };
+                        }
+                        if (node.default) return { node: node.default, env };
+                        throw new Error(
+                            "unbound rule parameter " +
+                                node.name +
+                                " at " +
+                                path,
+                        );
+                    }
+                    if (node.op === "ambient") {
+                        for (let dyn = env[1]; dyn; dyn = dyn.next) {
+                            if (dyn.name === node.name)
+                                return {
+                                    node: dyn.node,
+                                    env: [dyn.locals, dyn.next] as const,
+                                };
+                        }
+                        if (node.default) return { node: node.default, env };
+                        throw new Error(
+                            "unbound dynamic parameter " +
+                                node.name +
+                                " at " +
+                                path,
+                        );
+                    }
+                    return undefined;
+                },
+                childEnv(node, _field, action, env) {
+                    if (action === MixAction.ScopedChild) {
+                        // only bind's body is ScopedChild: it folds under the
+                        // dynamic scope the bind creates
+                        const { name, value } = node as typeof node & {
+                            name: string;
+                            value: GrammarCombinator<R, P>;
                         };
-                }
-                if (node.default) return { node: node.default, env };
-                throw new Error(
-                    "unbound rule parameter " + node.name + " at " + path,
-                );
-            }
-            if (node.op === "ambient") {
-                for (let dyn = env[1]; dyn; dyn = dyn.next) {
-                    if (dyn.name === node.name)
-                        return {
-                            node: dyn.node,
-                            env: [dyn.locals, dyn.next] as const,
-                        };
-                }
-                if (node.default) return { node: node.default, env };
-                throw new Error(
-                    "unbound dynamic parameter " + node.name + " at " + path,
-                );
-            }
-            return undefined;
-        },
-        childEnv(node, _field, action, env) {
-            if (action === MixAction.ScopedChild) {
-                // only bind's body is ScopedChild: it folds under the
-                // dynamic scope the bind creates
-                const { name, value } = node as typeof node & {
-                    name: string;
-                    value: GrammarCombinator<R, P>;
-                };
-                return [
-                    env[0],
-                    {
-                        name,
-                        node: value,
-                        locals: env[0],
-                        dynamics: env[1],
-                        next: env[1],
-                        key: "",
-                    },
-                ] as const;
-            }
-            return env;
-        },
-    });
+                        return [
+                            env[0],
+                            {
+                                name,
+                                node: value,
+                                locals: env[0],
+                                dynamics: env[1],
+                                next: env[1],
+                                key: "",
+                            },
+                        ] as const;
+                    }
+                    return env;
+                },
+            }),
+        ),
+    );
+
+/**
+ * Smallest JSON text worth deflating: below this, a deflate stream's own
+ * overhead cannot pay for itself.
+ */
+const DEFLATE_FLOOR = 1000;
+
+const encodeKeyString = (json: string): string => {
+    const quoted = JSON.stringify(json);
+    if (json.length < DEFLATE_FLOOR) return quoted;
+    const packed = deflateSync(strToU8(json)).toBase64();
+    return packed.length + 1 < quoted.length ? "!" + packed : quoted;
 };
