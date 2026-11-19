@@ -82,7 +82,7 @@ export const syncCompile = <T, R extends string>(
     handleError: (message: any) => any,
 ): any => {
     const entry = tab[node.type!];
-    var tbc, val, post;
+    let tbc, val, post;
     if (!entry)
         val = handleError(
             `don't know how to compile ${JSON.stringify(node.type)} node`,
@@ -91,7 +91,7 @@ export const syncCompile = <T, R extends string>(
         try {
             ({ tbc, val, post } = entry[0](node.children!, entry[1], node));
             if (tbc)
-                for (var [node2, path] of tbc) {
+                for (let [node2, path] of tbc) {
                     val = assignPath(
                         val,
                         syncCompile(node2, tab, wrap, handleError),
@@ -163,9 +163,10 @@ export const assignPath = <T, const P extends readonly PropertyKey[]>(
     obj: PathValue<T, P>,
     path: P & ValidPath<T, P>,
 ): T => {
-    var x: any = val;
+    let x: any = val;
     if (path.length > 0) {
-        for (var i = 0; i < path.length - 1; i++) {
+        let i: number;
+        for (i = 0; i < path.length - 1; i++) {
             x = x[path[i]!];
         }
         // console.log("before set", x, path[i], obj);

@@ -1,4 +1,6 @@
-/** Source location information for a token. */
+import { freeze } from "lib0/object";
+
+/** Source location information for a token. Also immutable at runtime. */
 export class Span {
     constructor(
         /** URL uniquely identifying the source that this span is from. */
@@ -11,7 +13,9 @@ export class Span {
         public readonly startCol: number,
         public readonly endLine: number,
         public readonly endCol: number,
-    ) {}
+    ) {
+        freeze(this);
+    }
 }
 
 /** Whether two (possibly undefined) {@link Location}s denote the same place. */

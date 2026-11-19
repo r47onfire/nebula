@@ -1,3 +1,4 @@
+import { freeze } from "lib0/object";
 import { GrammarCombinator } from "./combinator";
 import { Span } from "./span";
 
@@ -34,5 +35,8 @@ export class CSTNode<T> {
          * translated into a lazy syntax error.
          */
         readonly errorExpected?: GrammarCombinator<any, any>,
-    ) {}
+    ) {
+        freeze(this.children);
+        freeze(this);
+    }
 }

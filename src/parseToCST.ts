@@ -97,7 +97,7 @@ export const parseToCST = <R extends string>(
     memo: Memo<R> = {},
 ): CSTNode<R> => {
     const heads: (Head | undefined)[] = [];
-    var lrStack: LR<R> | undefined;
+    let lrStack: LR<R> | undefined;
     const cutStack: [number][] = [];
     const cutDepth = () => last(cutStack)?.[0] ?? 0;
     const consumeCut = () => {
@@ -106,7 +106,7 @@ export const parseToCST = <R extends string>(
     const snapshotCuts = (): readonly number[] =>
         cutStack.map((frame) => frame[0]);
     const restoreCuts = (saved: readonly number[]) => {
-        for (var k = 0; k < saved.length; k++)
+        for (let k = 0; k < saved.length; k++)
             (cutStack[k] ??= [] as any)[0] = saved[k]!;
         cutStack.length = saved.length;
     };
@@ -156,7 +156,7 @@ export const parseToCST = <R extends string>(
         dynamics: Dynamics,
     ): number => {
         if (i >= text.length) return i;
-        for (var j = max(fail.i, i + 1); j <= text.length; j++) {
+        for (let j = max(fail.i, i + 1); j <= text.length; j++) {
             const probe = probeAt(path, item, j, locals, dynamics);
             if (!probe) continue;
             children.push(errorNode(i, j, fail.expected), probe);
@@ -174,7 +174,7 @@ export const parseToCST = <R extends string>(
         locals: Locals<any>,
         dynamics: Dynamics,
     ): number | null => {
-        for (var j = i + 1; j <= text.length; j++) {
+        for (let j = i + 1; j <= text.length; j++) {
             const probe = probeAt(path, child, j, locals, dynamics);
             if (!probe) continue;
             children.push(
@@ -213,7 +213,7 @@ export const parseToCST = <R extends string>(
      */
     const setupLeftRecursion = (path: string, l: LR<R>) => {
         l.head ??= { path, involved: new Set(), eval: new Set() };
-        for (var s = lrStack; s && s.head !== l.head; s = s.next) {
+        for (let s = lrStack; s && s.head !== l.head; s = s.next) {
             s.head = l.head;
             l.head.involved.add(s.path);
         }
@@ -322,7 +322,7 @@ export const parseToCST = <R extends string>(
     };
 
     const lineStarts = buildLineStarts(text);
-    var lastLine = 0;
+    let lastLine = 0;
     /** Line and column of `offset`, both 0-based. */
     const locate = (offset: number): [line: number, col: number] => {
         // usually the offset is on the same line as the previous lookup;
@@ -332,7 +332,7 @@ export const parseToCST = <R extends string>(
             (lastLine + 1 < lineStarts.length &&
                 offset >= lineStarts[lastLine + 1]!)
         ) {
-            var lo = 0,
+            let lo = 0,
                 hi = lineStarts.length;
             while (lo + 1 < hi) {
                 const mid = (lo + hi) >> 1;
@@ -418,7 +418,7 @@ export const parseToCST = <R extends string>(
  */
 const buildLineStarts = (text: string): number[] => {
     const starts = [0];
-    var from = 0;
+    let from = 0;
     for (;;) {
         const nl = text.indexOf("\n", from);
         if (nl < 0) return starts;

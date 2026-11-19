@@ -21,14 +21,14 @@ export const formatTrace = (
 ): string => {
     const { startLine, endLine, startCol, endCol, file, begin, end } = span;
     const src = getSource(file);
-    var lineInfo = "";
+    let lineInfo = "";
     if (src) {
         const lines = src.split("\n");
         if (startLine < lines.length) {
             const relevantLine = lines[startLine]!;
             const lineNumberString = startLine + 1 + "";
-            var spanLength = end - begin;
-            var suffix = "";
+            let spanLength = end - begin;
+            let suffix = "";
             if (endLine !== startLine) {
                 spanLength = relevantLine.length - endCol;
                 suffix = "...";

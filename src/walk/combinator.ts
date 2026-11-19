@@ -49,9 +49,9 @@ export interface CombinatorWalker<T, E, R extends string, P extends string> {
      * A finished value for this node, if already known: cancels the walk below
      * it.
      */
-    precomputed?: (node: GrammarCombinator<R, P>, env: E) => T | undefined;
+    precomputed?(node: GrammarCombinator<R, P>, env: E): T | undefined;
     /** Record a node's folded value for future `precomputed` hits. */
-    memoize?: (node: GrammarCombinator<R, P>, value: T, env: E) => void;
+    memoize?(node: GrammarCombinator<R, P>, value: T, env: E): void;
 }
 
 export const walkCombinator = <T, E, R extends string, P extends string>(
@@ -64,7 +64,7 @@ export const walkCombinator = <T, E, R extends string, P extends string>(
     const sub = walker.resolve?.(g, env);
     if (sub !== undefined) return walkCombinator(sub.node, sub.env, walker);
     const fields: (readonly [string, MixAction, T])[] = [];
-    for (var { 0: field, 1: action } of opDefs[g.op].hashFields) {
+    for (let { 0: field, 1: action } of opDefs[g.op].hashFields) {
         const value = (g as any)[field] as unknown;
         if (value === undefined) continue;
         switch (action) {
@@ -82,7 +82,7 @@ export const walkCombinator = <T, E, R extends string, P extends string>(
                 ]);
                 break;
             case MixAction.Children:
-                for (var c of value as GrammarCombinator<R, P>[])
+                for (let c of value as GrammarCombinator<R, P>[])
                     fields.push([
                         field,
                         action,
@@ -115,6 +115,7 @@ export const walkCombinator = <T, E, R extends string, P extends string>(
     return result;
 };
 
+const basicHashMap = new WeakMap<GrammarCombinator<any, any>, number>();
 const basicHash: CombinatorWalker<number, void, any, any> = {
     leaf(_node, _field, action, value) {
         switch (action) {
@@ -131,24 +132,22 @@ const basicHash: CombinatorWalker<number, void, any, any> = {
         }
     },
     fold(fields, node) {
-        var h = javaHash(node.op);
-        for (var { 1: action, 2: value } of fields)
+        let h = javaHash(node.op);
+        for (let { 1: action, 2: value } of fields)
             h =
-                (imul(h, action === MixAction.AuxChild ? 37 : 31) + value!) >>>
+                (imul(h, action === MixAction.AuxChild ? 37 : 31) + value) >>>
                 0;
         return h;
     },
-    precomputed: (node) => node.hash,
-    memoize(node, value) {
-        node.hash = value;
-    },
+    precomputed: (node) => basicHashMap.get(node),
+    memoize: (node, value) => basicHashMap.set(node, value),
 };
 
 /**
  * A hash of a combinator tree, driven by the `hashFields` of each operation's
  * definition: like trees hash alike. Since there is no resolver, this is a
- * purely structural hash and is cached on the node itself, so hashing a tree
- * costs one walk, ever.
+ * purely structural hash and is cached, so hashing a tree costs one walk,
+ * ever.
  */
 export const hashCombinator = (g: GrammarCombinator<any, any>): number => {
     return walkCombinator(g, undefined, basicHash);
@@ -186,7 +185,7 @@ export const hashResolved = <R extends string, P extends string>(
         ).fold,
         resolve(node, env) {
             if (node.op === "param") {
-                for (var frame = env[0]; frame; frame = frame.next) {
+                for (let frame = env[0]; frame; frame = frame.next) {
                     const binding = frame.bindings[node.name];
                     if (binding)
                         return {
@@ -200,7 +199,7 @@ export const hashResolved = <R extends string, P extends string>(
                 );
             }
             if (node.op === "ambient") {
-                for (var dyn = env[1]; dyn; dyn = dyn.next) {
+                for (let dyn = env[1]; dyn; dyn = dyn.next) {
                     if (dyn.name === node.name)
                         return {
                             node: dyn.node,

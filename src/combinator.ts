@@ -1,6 +1,7 @@
 import { isArray } from "lib0/array";
 import { stringify } from "lib0/json";
 import { max } from "lib0/math";
+import { freeze } from "lib0/object";
 import { ambient, bind, nothing, param, rule, seq } from "./combinatorFactory";
 import { OpContext } from "./context";
 import { CSTNode } from "./cst";
@@ -16,13 +17,13 @@ export type OpMemo = Record<string, string[]>;
  * of {@link opDefs}.
  */
 export interface OpNodeShapes<R extends string, P extends string> {
-    literal: { pattern: string | [string, string] };
-    keyword: { tag: string; options: string[] };
+    literal: { pattern: string | readonly [string, string] };
+    keyword: { tag: string; options: readonly string[] };
     opsym: { tag: string; sym: string };
     ignored: { child: GrammarCombinator<R, P> };
     donate: { child: GrammarCombinator<R, P> };
     adopt: { child: GrammarCombinator<R, P> };
-    rule: { name: R; args: GrammarCombinator<R, P>[] };
+    rule: { name: R; args: readonly GrammarCombinator<R, P>[] };
     param: { name: P; default: GrammarCombinator<R, P> | undefined };
     ambient: { name: string; default: GrammarCombinator<R, P> | undefined };
     bind: {
@@ -32,12 +33,15 @@ export interface OpNodeShapes<R extends string, P extends string> {
         body: GrammarCombinator<R, P>;
     };
     sequence: {
-        items: GrammarCombinator<R, P>[];
+        items: readonly GrammarCombinator<R, P>[];
         separator: GrammarCombinator<R, P> | undefined;
     };
-    alternatives: { options: GrammarCombinator<R, P>[]; first?: boolean };
+    alternatives: {
+        options: readonly GrammarCombinator<R, P>[];
+        first?: boolean;
+    };
     optional: { child: GrammarCombinator<R, P> };
-    repeat: { items: GrammarCombinator<R, P>[]; required: boolean };
+    repeat: { items: readonly GrammarCombinator<R, P>[]; required: boolean };
     joined: {
         joiner: GrammarCombinator<R, P>;
         element: GrammarCombinator<R, P>;
@@ -70,8 +74,6 @@ export type GrammarOp = keyof OpNodeShapes<any, any>;
  * {@link hashCombinator}).
  */
 export interface CombinatorBase {
-    /** Cached structural hash; filled in by {@link hashCombinator} */
-    hash?: number;
     readonly op: string;
 }
 
@@ -242,10 +244,12 @@ export const opDefs = {
     // tok
 
     literal: {
-        create: (pattern: string | [string, string]) => ({ pattern }),
+        create: (pattern: string | [string, string]) => ({
+            pattern: freeze(pattern),
+        }),
         call(ctx, node, _, i) {
             const pattern = node.pattern;
-            if (isArray(pattern)) {
+            if ((isArray as (x: unknown) => x is readonly any[])(pattern)) {
                 const re = new RegExp(pattern[0], pattern[1] + "y");
                 re.lastIndex = i;
                 const match = re.exec(ctx.text);
@@ -282,7 +286,10 @@ export const opDefs = {
     // kw
 
     keyword: {
-        create: (t: string, ...options: string[]) => ({ tag: t, options }),
+        create: (t: string, ...options: string[]) => ({
+            tag: t,
+            options: freeze(options),
+        }),
         call(ctx, node, _, i) {
             const { options, tag } = node;
             const re = new RegExp(
@@ -470,13 +477,13 @@ export const opDefs = {
     rule: {
         create: (r: string, ...args: GrammarCombinator<any, any>[]) => ({
             name: r,
-            args,
+            args: freeze(args),
         }),
         call(ctx, { name, args = [] }, path, i, locals, dynamics) {
             const entry = ctx.grammar[name];
             if (!entry)
                 throw new Error("unknown named rule " + name + " at " + path);
-            var bodyPath = name,
+            let bodyPath = name,
                 bodyLocals = locals;
             const { def, params } = entry;
             if (params && params.length > 0) {
@@ -494,7 +501,7 @@ export const opDefs = {
                         `too many arguments to rule ${name} (expected ${params.length} but got ${args.length}) at ${path}`,
                     );
                 const bindings: Record<string, ParamBinding> = {};
-                for (var k = 0; k < args.length; k++)
+                for (let k = 0; k < args.length; k++)
                     bindings[params[k]!] = { node: args[k]!, locals };
                 bodyPath = instancePath(name, args, locals, dynamics, path);
                 bodyLocals = { bindings, next: locals };
@@ -541,7 +548,7 @@ export const opDefs = {
             default: defaultValue,
         }),
         call(ctx, { name, default: defaultValue }, path, i, locals, dynamics) {
-            for (var scope = locals; scope; scope = scope.next) {
+            for (let scope = locals; scope; scope = scope.next) {
                 const binding = scope.bindings[name];
                 // Evaluate the argument under its own memo path: the memo is
                 // keyed by path alone, so reusing this reference's path would
@@ -587,7 +594,7 @@ export const opDefs = {
             default: defaultValue,
         }),
         call(ctx, { name, default: defaultValue }, path, i, locals, dynamics) {
-            for (var dyn = dynamics; dyn; dyn = dyn.next) {
+            for (let dyn = dynamics; dyn; dyn = dyn.next) {
                 // As with param, the value gets its own memo path -- and the
                 // path names the binding's frame key, because the same
                 // reference under different bindings must not share a memo
@@ -673,7 +680,7 @@ export const opDefs = {
             s: GrammarCombinator<any, any> | undefined,
             ...n: GrammarCombinator<any, any>[]
         ) => ({
-            items: n,
+            items: freeze(n),
             separator: s,
         }),
         call(ctx, node, path, i, locals, dynamics) {
@@ -682,7 +689,7 @@ export const opDefs = {
             const { items, separator } = node,
                 len = items.length;
             const currentCut = ctx.cutDepth();
-            for (var j = 0; j < len; j++) {
+            for (let j = 0; j < len; j++) {
                 // try sep between items only
                 if (j > 0 && separator) {
                     const sepThing = ctx.applyRule(
@@ -752,15 +759,15 @@ export const opDefs = {
 
     alternatives: {
         create: (first: boolean, ...n: GrammarCombinator<any, any>[]) => ({
-            options: n,
+            options: freeze(n),
             first,
         }),
         call(ctx, node, path, i, locals, dynamics) {
             const { options: items, first } = node,
                 len = items.length;
             const options: CSTNode<any>[] = [];
-            var furthestFail: MatchFail | undefined;
-            for (var j = 0; j < len; j++) {
+            let furthestFail: MatchFail | undefined;
+            for (let j = 0; j < len; j++) {
                 const depthBefore = ctx.cutDepth();
                 const thisMatch = ctx.applyRule(
                     path + "/" + j,
@@ -839,7 +846,7 @@ export const opDefs = {
     repeat: {
         // TODO: expose repeat_seq, it's implemented but not exposed by create + factories
         create: (r: boolean, n: GrammarCombinator<any, any>) => ({
-            items: [n],
+            items: freeze([n]),
             required: r,
         }),
         call(ctx, { items: nodes, required }, path, i, locals, dynamics) {
@@ -847,7 +854,7 @@ export const opDefs = {
             const children: CSTNode<any>[] = [];
             const len = nodes.length;
             if (len > 0) {
-                for (var count = 0; ; count++) {
+                for (let count = 0; ; count++) {
                     if (i >= ctx.text.length) {
                         // oh no
                         if (required && count < 1)
@@ -929,7 +936,7 @@ export const opDefs = {
             const start = i;
             const children: CSTNode<any>[] = [];
             const minimum = require2 ? 3 : 1; // children interleave elements and separators: two elements are 3 children
-            var lastWasSep = false;
+            let lastWasSep = false;
             for (;;) {
                 if (i >= ctx.text.length) {
                     // at EOF don't allow a trailing separator unless trailing sep is allowed in general

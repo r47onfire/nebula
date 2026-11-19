@@ -8,17 +8,19 @@ import {
 } from "./combinator";
 import { ParameterizedRule } from "./grammar";
 import type { CSTNode } from "./cst";
+import { freeze } from "lib0/object";
 
 const factory = <R extends string, P extends string, T extends GrammarOp>(
     type: T,
     ...args: Parameters<(typeof opDefs)[T]["create"]>
-): CombinatorBase & { readonly op: T } & OpNodeShapes<R, P>[T] => ({
-    ...((opDefs[type] as GrammarOpDef<any>).create(...args) as OpNodeShapes<
-        R,
-        P
-    >[T]),
-    op: type,
-});
+): Readonly<CombinatorBase & { readonly op: T } & OpNodeShapes<R, P>[T]> =>
+    freeze({
+        ...((opDefs[type] as GrammarOpDef<any>).create(...args) as OpNodeShapes<
+            R,
+            P
+        >[T]),
+        op: type,
+    });
 const factoryFactory =
     <T extends GrammarOp>(type: T) =>
     (...args: Parameters<(typeof opDefs)[T]["create"]>) =>
