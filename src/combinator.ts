@@ -704,9 +704,7 @@ export const opDefs = {
                             new CSTNode(ctx.createSpan(i, i), null, [], true),
                         );
                     } else {
-                        children.push(
-                            new CSTNode(sepThing.span, null, [sepThing], true),
-                        );
+                        children.push(sepThing);
                         i = sepThing.span.end;
                     }
                 }
