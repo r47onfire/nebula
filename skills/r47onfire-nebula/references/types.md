@@ -2,47 +2,53 @@
 
 ## combinator
 
+### `OpMemo`
+```ts
+Record<string, string[]>
+```
+
 ### `OpNodeShapes`
 The fields of every operation's node, one entry per operation. This is a
 separate interface (rather than being inferred from the shape of
 opDefs) because Typescript is stupid and can't infer it from the shape
 of opDefs.
 **Properties:**
-- `literal: { pattern: string | [string, string] }`
-- `keyword: { tag: string; options: string[] }`
+- `literal: { pattern: string | readonly [string, string] }`
+- `keyword: { tag: string; options: readonly string[] }`
 - `opsym: { tag: string; sym: string }`
-- `ignored: { child: GrammarCombinator }`
-- `rule: { name: string; args: GrammarCombinator[] }`
-- `param: { name: string; default: GrammarCombinator | undefined }`
-- `ambient: { name: string; default: GrammarCombinator | undefined }`
-- `bind: { name: string; value: GrammarCombinator; extend: boolean; body: GrammarCombinator }`
-- `sequence: { items: GrammarCombinator[]; separator: GrammarCombinator | undefined }`
-- `alternatives: { options: GrammarCombinator[]; first?: boolean }`
-- `optional: { child: GrammarCombinator }`
-- `repeat: { items: GrammarCombinator[]; required: boolean }`
-- `joined: { joiner: GrammarCombinator; element: GrammarCombinator; require2: boolean; trailing: boolean }`
-- `if: { condition: GrammarCombinator; ifTrue: GrammarCombinator; ifFalse: GrammarCombinator }`
-- `tag: { tag: string; child: GrammarCombinator }`
+- `ignored: { child: GrammarCombinator<R, P> }`
+- `donate: { child: GrammarCombinator<R, P> }`
+- `adopt: { child: GrammarCombinator<R, P> }`
+- `rule: { name: R; args: readonly GrammarCombinator<R, P>[] }`
+- `param: { name: P; default: GrammarCombinator<R, P> | undefined }`
+- `ambient: { name: string; default: GrammarCombinator<R, P> | undefined }`
+- `bind: { name: string; value: GrammarCombinator<R, P>; extend: boolean; body: GrammarCombinator<R, P> }`
+- `sequence: { items: readonly GrammarCombinator<R, P>[]; separator: GrammarCombinator<R, P> | undefined }`
+- `alternatives: { options: readonly GrammarCombinator<R, P>[]; first?: boolean }`
+- `optional: { child: GrammarCombinator<R, P> }`
+- `repeat: { items: readonly GrammarCombinator<R, P>[]; required: boolean }`
+- `joined: { joiner: GrammarCombinator<R, P>; element: GrammarCombinator<R, P>; require2: boolean; trailing: boolean }`
+- `if: { condition: GrammarCombinator<R, P>; ifTrue: GrammarCombinator<R, P>; ifFalse: GrammarCombinator<R, P> }`
+- `tag: { tag: string; child: GrammarCombinator<R, P> }`
 - `cut: { depth: number }`
-- `lookahead: { positive: boolean; child: GrammarCombinator }`
-- `nonempty: { child: GrammarCombinator }`
-- `sameline: { child: GrammarCombinator }`
+- `lookahead: { positive: boolean; child: GrammarCombinator<R, P> }`
+- `nonempty: { child: GrammarCombinator<R, P> }`
+- `sameline: { child: GrammarCombinator<R, P> }`
 - `nothing: void`
-- `try: { child: GrammarCombinator }`
+- `try: { child: GrammarCombinator<R, P> }`
 - `die: { message: string }`
 
 ### `GrammarOp`
 The operation a GrammarCombinator performs; determines which of the
 per-operation subtypes a node is, and so which named fields it has.
 ```ts
-keyof OpNodeShapes
+keyof OpNodeShapes<any, any>
 ```
 
 ### `CombinatorBase`
 Every subtype carries a lazily filled cache of its structural hash (see
 hashCombinator).
 **Properties:**
-- `hash: number` (optional) — Cached structural hash; filled in by hashCombinator
 - `op: string`
 
 ### `GrammarCombinator`
@@ -52,7 +58,7 @@ operation has its own subtype with explicitly named fields; the per-operation
 definitions (how a node is created, parsed, hashed, and rendered) live
 together in the `opDefs` table below.
 ```ts
-{ [O in GrammarOp]: CombinatorBase & { op: O } & OpNodeShapes[O] }[GrammarOp]
+{ [O in GrammarOp]: CombinatorBase & { op: O } & OpNodeShapes<R, P>[O] }[GrammarOp] & { ___rules_nonexistent_at_runtime?: R; ___params_nonexistent_at_runtime?: P }
 ```
 
 ### `ParamBinding`
@@ -61,8 +67,8 @@ combinator, plus the parameter scope in effect where the argument was
 written, so that evaluating it later (via the `param` op) resolves any
 parameters it mentions in the call site's scope, not the callee's.
 **Properties:**
-- `node: GrammarCombinator`
-- `locals: Locals`
+- `node: GrammarCombinator<any, any>`
+- `locals: Locals<any>`
 
 ### `ParamFrame`
 Internal implementation detail of the parser (used by parameterized
@@ -71,12 +77,12 @@ rule and param).
 A parameter scope: the bindings of one parameterized rule invocation, chained
 to the enclosing scope. Scopes are immutable.
 **Properties:**
-- `bindings: Readonly<Record<string, ParamBinding>>`
-- `next: Locals`
+- `bindings: Readonly<Record<P, ParamBinding>>`
+- `next: Locals<any>`
 
 ### `Locals`
 ```ts
-ParamFrame | undefined
+ParamFrame<P> | undefined
 ```
 
 ### `DynBindingFrame`
@@ -87,11 +93,12 @@ The dynamic scope: a chain of dynamic bindings (bound value, scopes in which
 it was created), innermost first. Like the ParamFrame it immutable.
 **Properties:**
 - `name: string`
-- `node: GrammarCombinator`
-- `locals: Locals`
+- `node: GrammarCombinator<any, any>`
+- `locals: Locals<any>`
 - `next: Dynamics`
-- `key: string` — Unique string hash of this chain, mixed into memo keys to keep cache
-entries specific to this exact scope's bindings.
+- `key: string` — Unique string form of this chain (each binding's name plus the resolved
+serialization of its value), mixed into memo keys to keep cache entries
+specific to this exact scope's bindings.
 
 ### `Dynamics`
 ```ts
@@ -110,7 +117,7 @@ shape of a definition; each entry in opDefs is more precise (its
 returns).
 **Properties:**
 - `create: (args: any[]) => N`
-- `call: (ctx: OpContext, node: N, path: string, i: number, locals: Locals, dynamics: Dynamics) => CSTNode | MatchFail`
+- `call: (ctx: OpContext<any>, node: N, path: string, i: number, locals: Locals<any>, dynamics: Dynamics) => CSTNode<any> | MatchFail`
 - `hashFields: readonly (readonly [keyof N, MixAction])[]`
 - `describe: (node: N) => string`
 
@@ -118,7 +125,7 @@ returns).
 The (weak) type of opDefs: every operation's definition, tied to its
 declared node shape in OpNodeShapes.
 ```ts
-{ [O in GrammarOp]: GrammarOpDef<OpNodeShapes[O]> }
+{ [O in GrammarOp]: GrammarOpDef<OpNodeShapes<any, any>[O]> }
 ```
 
 ### `MixAction`
@@ -147,33 +154,35 @@ grammar, the memoizing entry point for sub-parses, error recovery, and the
 cut bookkeeping. Provided by `parseToCST`; see there for what each one does.
 **Properties:**
 - `text: string`
-- `memo: Memo`
-- `grammar: Grammar`
-
-## cst
-
-### `CSTNode`
-A node of the concrete syntax tree produced by the parser.
-
-Invariant: recursively concatenating the `text` of all leaves -- including
-`ignored` nodes -- reproduces the original source exactly. Ignored nodes are
-only removed in a later pass, when the CST is lowered to an AST.
+- `memo: Memo<R>`
+- `grammar: Grammar<R>`
 
 ## grammar
 
-### `Grammar`
-A grammar: rule names mapped to their definitions.
+### `GrammarEntry`
+One rule of a Grammar: the rule's definition, plus -- for a
+parameterized rule -- its parameter names (see ParameterizedRule). Any
+further fields are metadata, typed by the grammar's metadata type parameter
+`M`: Nebula itself never reads them; they are how a consumer keeps per-rule
+data, such as a compile handler, next to the rule it belongs to.
 ```ts
-Readonly<Record<string, GrammarCombinator | ParameterizedRule>>
+(NonParameterizedRule<R> | ParameterizedRule<R, any>) & M
+```
+
+### `Grammar`
+A grammar: rule names mapped to their entries.
+```ts
+Readonly<Record<R, GrammarEntry<R, M>>>
+```
+
+### `NonParameterizedRule`
+```ts
+{ def: GrammarCombinator<R, never>; params?: undefined } & M
 ```
 
 ### `ParameterizedRule`
-A parameterized rule definition: the parameter names, and the rule body.
 Inside the body, param evaluates the combinator that was passed for
 that parameter at the call site (in the call site's scope).
-```ts
-readonly [params: readonly string[], body: GrammarCombinator]
-```
 
 ## parseToCST
 
@@ -190,16 +199,29 @@ The memo table for a parse: results (a CST node, a failure, or an in-progress
 LR) by `MemoLoc`. A caller may pass one in to reuse it across parses, but it
 must be cleared whenever the grammar changes.
 ```ts
-Record<MemoLoc, CSTNode | MatchFail | LR>
+{ [x in MemoLoc]: CSTNode<T> | MatchFail | LR<T> } & { __operators?: OpMemo; __donors?: WeakSet<CSTNode<T>> }
 ```
 
 ## walk
 
 ### `CombinatorWalker`
+
+### `CSTPath`
+One node of a traverseCST walk, with the means to steer it.
 **Properties:**
-- `precomputed: (node: GrammarCombinator, env: E) => T | undefined` (optional) — A finished value for this node, if already known: cancels the walk below
-it.
-- `memoize: (node: GrammarCombinator, value: T, env: E) => void` (optional) — Record a node's folded value for future `precomputed` hits.
+- `node: CSTNode<T>` — The node being visited.
+- `parent: CSTNode<T> | null` — The node's parent, or null when visiting the root.
+- `index: number` — The node's index within its parent's children (-1 for the root).
+
+### `CSTVisitor`
+A traverseCST visitor: either one function called for every node, or
+a table from node type to the function for nodes of that type, with a `"*"`
+entry (if any) called for the nodes no other entry claims -- text leaves and
+unnamed containers can only be reached through `"*"`. The functions run
+pre-order: a node is visited before its children.
+```ts
+((path: CSTPath<T>) => void) | Readonly<Record<string, (path: CSTPath<T>) => void>>
+```
 
 ## compile
 
@@ -212,14 +234,14 @@ The mapping is used by the handler for any purpose, but is usually used to
 map variant to implementation (e.g "+" to a plus builtin and "-" to a minus
 builtin.)
 ```ts
-Record<string, [fn: T, mapping?: Record<string, any>]>
+Record<R, [fn: T, mapping?: Record<string, any>]>
 ```
 
 ### `CompileBuilder`
 Result from a single compile step.
 **Properties:**
 - `val: T` — The template value of AST.
-- `tbc: [CSTNode, PropertyKey[]][]` (optional) — For all the value-path pairs in `tbc`, the CST node will be compiled, and
+- `tbc: [CSTNode<R>, PropertyKey[]][]` (optional) — For all the value-path pairs in `tbc`, the CST node will be compiled, and
 then inserted into the `val` using assignPath.
 - `post: string | null` (optional) — If `post` is set then the result, after assembling, will be passed back
 into the `post` entry in the table (as a single node).

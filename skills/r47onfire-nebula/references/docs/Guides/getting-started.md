@@ -10,11 +10,11 @@ npm install github:@r47onfire/nebula
 
 ## A first grammar
 
-A grammar is a plain object mapping rule names to combinators. Combinators are also plain data -- every constructor below just builds a node of the grammar:
+A grammar is a plain object mapping rule names to entries, each entry holding the rule's definition combinator (and, for a parameterized rule, its parameter names). Combinators are also plain data -- every constructor below just builds a node of the grammar:
 
 ```ts
 import {
-    Grammar,
+    defineGrammar,
     lit,
     param,
     parseToCST,
@@ -23,17 +23,20 @@ import {
     seq,
 } from "@r47onfire/nebula";
 
-const grammar: Grammar = {
-    main: rule("wrap", lit("("), lit(")")),
-    wrap: [["open", "close"], seq(param("open"), rule("word"), param("close"))],
-    word: regex(/[a-z]+/),
-};
+const grammar = defineGrammar({
+    main: { def: rule("wrap", lit("("), lit(")")) },
+    wrap: {
+        params: ["open", "close"],
+        def: seq(param("open"), rule("word"), param("close")),
+    },
+    word: { def: regex(/[a-z]+/) },
+});
 ```
 
 Two things to notice:
 
 - `nebula!rule | `rule("word")`` refers to another rule by name. A rule that succeeds produces a CST node whose `nebula!CSTNode.type | `type`` is the rule name.
-- `wrap` is a _parameterized rule_: its definition is a pair of a parameter list and a body. `nebula!rule | `rule("wrap", lit("("), lit(")"))`` calls it with two combinator arguments, and inside the body `nebula!param | `param("open")`` and `nebula!param | `param("close")`` stand for them. Different call sites can pass different arguments and get different parses from the same rule body.
+- `wrap` is a _parameterized rule_: its entry carries a `params` list alongside its `def`. `nebula!rule | `rule("wrap", lit("("), lit(")"))`` calls it with two combinator arguments, and inside the body `nebula!param | `param("open")`` and `nebula!param | `param("close")`` stand for them. Different call sites can pass different arguments and get different parses from the same rule body.
 
 ## Parsing
 

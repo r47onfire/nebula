@@ -10,7 +10,7 @@ Packrat parser engine with left-recursion support, producing a round-trippable C
 
 ## Quick Reference
 
-62 exports (16 functions, 2 classes, 22 types, 1 enums, 21 constants) — see references/ for full API.
+74 exports (17 functions, 3 classes, 26 types, 1 enums, 27 constants) — see references/ for full API.
 
 ## Documentation
 
@@ -31,7 +31,7 @@ npm install github:@r47onfire/nebula
 
 ## A first grammar
 
-A grammar is a plain object mapping rule names to combinators.
+A grammar is a plain object mapping rule names to entries, each entry holding the rule's definition combinator (and, for a parameterized rule, its parameter names).
 - **Combinators** — # Combinators
 
 Every combinator is a function that returns an immutable grammar node.

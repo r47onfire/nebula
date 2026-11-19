@@ -6,82 +6,56 @@
 Renders a combinator in a compact PEG-like notation, via its operation's
 `describe` in opDefs; for debugging grammars.
 ```ts
-describeCombinator(node: GrammarCombinator): string
+describeCombinator(node: GrammarCombinator<any, any>): string
 ```
 **Parameters:**
-- `node: GrammarCombinator`
+- `node: GrammarCombinator<any, any>`
 **Returns:** `string`
 
 ## combinatorFactory
-
-### `lit`
-Matches the literal string `str` exactly; produces a leaf holding that text.
-```ts
-lit(str: string): GrammarCombinator
-```
-**Parameters:**
-- `str: string`
-**Returns:** `GrammarCombinator`
-
-### `regex`
-Matches the regex `pattern` anchored at the current position (the engine adds
-the sticky `y` flag); produces a leaf holding the matched text.
-```ts
-regex(pattern: RegExp): GrammarCombinator
-```
-**Parameters:**
-- `pattern: RegExp`
-**Returns:** `GrammarCombinator`
 
 ### `seq`
 Matches all of `nodes` in order; the result is a flat node holding every
 child's result.
 ```ts
-seq(nodes: GrammarCombinator[]): GrammarCombinator
+seq<R, P>(nodes: GrammarCombinator<R, P>[]): GrammarCombinator<NoInfer<R>, NoInfer<P>>
 ```
 **Parameters:**
-- `nodes: GrammarCombinator[]`
-**Returns:** `GrammarCombinator`
+- `nodes: GrammarCombinator<R, P>[]`
+**Returns:** `GrammarCombinator<NoInfer<R>, NoInfer<P>>`
 
 ### `ssep`
 Like seq, but the separator is attempted between the items; separator
 results are marked CSTNode.ignored | ignored.
 ```ts
-ssep(separator: GrammarCombinator, nodes: GrammarCombinator[]): GrammarCombinator
+ssep<R, P>(separator: GrammarCombinator<R, P>, nodes: GrammarCombinator<R, P>[]): GrammarCombinator<NoInfer<R>, NoInfer<P>>
 ```
 **Parameters:**
-- `separator: GrammarCombinator`
-- `nodes: GrammarCombinator[]`
-**Returns:** `GrammarCombinator`
+- `separator: GrammarCombinator<R, P>`
+- `nodes: GrammarCombinator<R, P>[]`
+**Returns:** `GrammarCombinator<NoInfer<R>, NoInfer<P>>`
 
 ### `alt`
 Tries every alternative and returns the first alternative that cut
 (whether or not it succeeded) or if none cut, the longest succeeding match
 (the first, on ties).
 ```ts
-alt(options: GrammarCombinator[]): GrammarCombinator
+alt<R, P>(options: GrammarCombinator<R, P>[]): GrammarCombinator<NoInfer<R>, NoInfer<P>>
 ```
 **Parameters:**
-- `options: GrammarCombinator[]`
-**Returns:** `GrammarCombinator`
-
-### `no`
-Always fails, but not a hard failure.
-```ts
-no(): GrammarCombinator
-```
-**Returns:** `GrammarCombinator`
+- `options: GrammarCombinator<R, P>[]`
+**Returns:** `GrammarCombinator<NoInfer<R>, NoInfer<P>>`
 
 ### `altFirst`
 Ordered choice: returns the first succeeding alternative, without trying
 later ones (a later alternative is tried only if every earlier one fails
 without cutting).
 ```ts
-altFirst(options: GrammarCombinator[]): GrammarCombinator
+altFirst<R, P>(options: GrammarCombinator<R, P>[]): GrammarCombinator<NoInfer<R>, NoInfer<P>>
 ```
 **Parameters:**
-- `options: GrammarCombinator[]`
-**Returns:** `GrammarCombinator`
+- `options: GrammarCombinator<R, P>[]`
+**Returns:** `GrammarCombinator<NoInfer<R>, NoInfer<P>>`
 
 ## errors
 
@@ -107,88 +81,162 @@ formatTrace(span: Span, message: string, getSource: (url: URL) => string): strin
 Parse text into a CST. The CST may contain error nodes if there were syntax
 errors.
 ```ts
-parseToCST(text: string, filename: Readonly<URL>, startIndex: number, startRule: string, grammar: Grammar, recoverNodeType: string, errorType: string, memo: Memo): CSTNode
+parseToCST<R>(text: string, filename: Readonly<URL>, startIndex: number, startRule: R, grammar: Grammar<R>, recoverNodeType: R, errorType: R, memo: Memo<R>): CSTNode<R>
 ```
 **Parameters:**
 - `text: string`
 - `filename: Readonly<URL>`
 - `startIndex: number`
-- `startRule: string`
-- `grammar: Grammar`
-- `recoverNodeType: string`
-- `errorType: string` — default: `"BAD"`
-- `memo: Memo` — default: `{}`
-**Returns:** `CSTNode`
+- `startRule: R`
+- `grammar: Grammar<R>`
+- `recoverNodeType: R`
+- `errorType: R` — default: `...`
+- `memo: Memo<R>` — default: `{}`
+**Returns:** `CSTNode<R>`
+
+## span
+
+### `locationsEqual`
+Whether two (possibly undefined) Locations denote the same place.
+```ts
+locationsEqual(location1: Span | undefined, location2: Span | undefined): boolean
+```
+**Parameters:**
+- `location1: Span | undefined`
+- `location2: Span | undefined`
+**Returns:** `boolean`
 
 ## walk
 
 ### `walkCombinator`
 ```ts
-walkCombinator<T, E>(g: GrammarCombinator, env: E, walker: CombinatorWalker<T, E>): T
+walkCombinator<T, E, R, P>(g: GrammarCombinator<R, P>, env: E, walker: CombinatorWalker<T, E, R, P>): T
 ```
 **Parameters:**
-- `g: GrammarCombinator`
+- `g: GrammarCombinator<R, P>`
 - `env: E`
-- `walker: CombinatorWalker<T, E>`
+- `walker: CombinatorWalker<T, E, R, P>`
 **Returns:** `T`
 
 ### `hashCombinator`
 A hash of a combinator tree, driven by the `hashFields` of each operation's
 definition: like trees hash alike. Since there is no resolver, this is a
-purely structural hash and is cached on the node itself, so hashing a tree
-costs one walk, ever.
+purely structural hash and is cached, so hashing a tree costs one walk,
+ever.
 ```ts
-hashCombinator(g: GrammarCombinator): number
+hashCombinator(g: GrammarCombinator<any, any>): number
 ```
 **Parameters:**
-- `g: GrammarCombinator`
+- `g: GrammarCombinator<any, any>`
 **Returns:** `number`
 
-### `hashResolved`
-A hash of a combinator tree with its parameter references resolved: `param`
-nodes contribute the hash of the argument they name (resolved in the lexical
-scope), `ambient` nodes the hash of the dynamic binding they name (resolved
-in the dynamic scope captured by that binding, so a binding's value never
-depends on itself), and `bind` nodes hash their body under the dynamic scope
-the bind creates. Nothing is cached, since the result depends on the scopes,
-not just the tree.
+### `serializeResolved`
+The canonical serialization of a combinator tree with its parameter
+references resolved: `param` nodes contribute the serialization of the
+argument they name (resolved in the lexical scope), `ambient` nodes the
+serialization of the dynamic binding they name (resolved in the dynamic scope
+captured by that binding, so a binding's value never depends on itself), and
+`bind` nodes serialize their body under the dynamic scope the bind creates.
+Nothing is cached, since the result depends on the scopes, not just the
+tree.
+
+The serialization exactly encodes the fields that feed the combinator hash
+(see `hashFields` on the operation definitions), in definition order, so it
+can (in theory) be unparsed back into the resolved tree it came from.
+Currently, the format is undocumented and there is no parsing function, but
+there is also really no need to be parsing it.
 ```ts
-hashResolved(g: GrammarCombinator, locals: Locals, dynamics: Dynamics, path: string): number
+serializeResolved<R, P>(g: GrammarCombinator<R, P>, locals: Locals<P>, dynamics: Dynamics, path: string): string
 ```
 **Parameters:**
-- `g: GrammarCombinator`
-- `locals: Locals`
+- `g: GrammarCombinator<R, P>`
+- `locals: Locals<P>`
 - `dynamics: Dynamics`
 - `path: string`
-**Returns:** `number`
+**Returns:** `string`
 **Throws:** If the grammar is invalid (there is a lexical or ambient parameter
   that isn't bound and has no default)
+
+### `namedChildren`
+The children `node` would have if it were condensed (see condenseCST),
+computed from the raw tree without condensing it: ignored children are
+dropped, unnamed containers dissolve into their own such children, and named
+nodes, text leaves, and error nodes are kept as they are -- the original
+nodes, not condensed rebuilds.
+
+Nodes are immutable, so the result is cached per node in a WeakMap and the
+same array is returned on every call; do not mutate it.
+```ts
+namedChildren<T>(node: CSTNode<T>): readonly CSTNode<T>[]
+```
+**Parameters:**
+- `node: CSTNode<T>`
+**Returns:** `readonly CSTNode<T>[]`
+
+### `hashNode`
+A structural hash of a CST. Ignores CSTNode.span|span and
+CSTNode.value|value since the span can differ if the same text is
+parsed twice in two different places, and the value is a mutable memoization
+helper.
+
+The result is cached, so hashing a tree costs one walk, ever. Structural
+edits do not happen in place -- a traversal rebuilds the nodes above an edit,
+and rebuilt nodes start with no cached hash.
+```ts
+hashNode<T>(node: CSTNode<T>): number
+```
+**Parameters:**
+- `node: CSTNode<T>`
+**Returns:** `number`
+
+### `traverseCST`
+Walk a CST the way @babel/traverse walks a Babel AST: every node -- named,
+unnamed, ignored, and leaves alike -- is visited pre-order, and the visitor
+steers the walk through the CSTPath it is handed (skip a subtree, stop
+the walk, replace or remove nodes).
+
+The walk is non-mutating. It returns the tree with every replacement applied:
+a subtree nothing replaced in is returned as the very same objects, while a
+node with a changed descendant is rebuilt -- same span, type, and flags, new
+children, and neither `value` nor a cached hash carried over, since both may
+have depended on the old children. Replacements made before a
+CSTPath.stop still apply; the rest of the tree is returned as it
+was.
+```ts
+traverseCST<T>(root: CSTNode<T>, visitor: CSTVisitor<T>): CSTNode<T>
+```
+**Parameters:**
+- `root: CSTNode<T>`
+- `visitor: CSTVisitor<T>`
+**Returns:** `CSTNode<T>`
 
 ## compile
 
 ### `condenseCST`
 Condense a CST as much as possible, preserving metadata spans:
 
-- Ignored children are removed
+- ignored children are removed
+- A named node whose only child is considered ignored is itself considered
+  ignored (recursively)
 - Unnamed container nodes are merged into their parent
 - Named nodes, text leaves, and error nodes stay as they are
 
 The root is always a named node since a parse always starts at a named rule.
 ```ts
-condenseCST(cst: CSTNode): CSTNode
+condenseCST<R>(cst: CSTNode<R>): CSTNode<R>
 ```
 **Parameters:**
-- `cst: CSTNode`
-**Returns:** `CSTNode`
+- `cst: CSTNode<R>`
+**Returns:** `CSTNode<R>`
 
 ### `syncCompile`
 ```ts
-syncCompile<T>(node: CSTNode, tab: CompilerTable<(items: any, table: Record<string, any> | undefined, node: CSTNode) => CompileBuilder<T>>, wrap: (compiled: any, node: CSTNode) => any, handleError: (message: any) => any): any
+syncCompile<T, R>(node: CSTNode<R>, tab: CompilerTable<R, (items: any, table: Record<string, any> | undefined, node: CSTNode<R>) => CompileBuilder<T, R>>, wrap: (compiled: any, node: CSTNode<R>) => any, handleError: (message: any) => any): any
 ```
 **Parameters:**
-- `node: CSTNode`
-- `tab: CompilerTable<(items: any, table: Record<string, any> | undefined, node: CSTNode) => CompileBuilder<T>>`
-- `wrap: (compiled: any, node: CSTNode) => any`
+- `node: CSTNode<R>`
+- `tab: CompilerTable<R, (items: any, table: Record<string, any> | undefined, node: CSTNode<R>) => CompileBuilder<T, R>>`
+- `wrap: (compiled: any, node: CSTNode<R>) => any`
 - `handleError: (message: any) => any`
 **Returns:** `any`
 
